@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Батлер - БМ Консьерж</title>
+  <link rel="stylesheet" href="console.css?v=6">
+</head>
+<body>
+  
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+      Батлер
+    </div>
+    
+    <div class="sidebar-menu">
+      <a class="menu-item active" onclick="navTo('dashboard')">
+        <div class="menu-item-left">
+          <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+          Главная
+        </div>
+      </a>
+      <a class="menu-item" onclick="navTo('conversations')">
+        <div class="menu-item-left">
+          <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+          Диалоги
+        </div>
+      </a>
+      <a class="menu-item" onclick="navTo('leads')">
+        <div class="menu-item-left">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          Заявки
+        </div>
+        <div class="menu-badge" id="badge-leads">0</div>
+      </a>
+      <a class="menu-item" onclick="navTo('logs')">
+        <div class="menu-item-left">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          Центр проверки
+        </div>
+        <div class="menu-badge" id="badge-errors" style="background:var(--accent-red)">0</div>
+      </a>
+
+      <div class="menu-section" style="margin-top: 24px;">
+        <div class="menu-section-title">Операции</div>
+        <a class="menu-item" onclick="navTo('kb')">
+          <div class="menu-item-left">
+            <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H8V4h12v12z"/></svg>
+            База знаний
+          </div>
+        </a>
+        <a class="menu-item" onclick="navTo('test-chat')">
+          <div class="menu-item-left">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+            Тест чата
+          </div>
+        </a>
+      </div>
+      
+      <div class="menu-section">
+        <div class="menu-section-title">Движок</div>
+        <a class="menu-item" onclick="navTo('ai-providers')">
+          <div class="menu-item-left">
+            <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            AI Провайдеры
+          </div>
+        </a>
+        <a class="menu-item" onclick="navTo('integrations')">
+          <div class="menu-item-left">
+            <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+            Интеграции
+          </div>
+        </a>
+        <a class="menu-item" onclick="navTo('settings')">
+          <div class="menu-item-left">
+            <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Настройки
+          </div>
+        </a>
+      </div>
+    </div>
+    
+    <div class="sidebar-footer">
+      <div class="avatar">С</div>
+      <div>Админ</div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main-content">
+    <div class="content-scroll">
+      
+      <!-- DASHBOARD VIEW -->
+      <div id="view-dashboard" class="view">
+        <div class="page-header">
+          <div class="page-title">Панель управления</div>
+          <select class="form-input" style="width:auto; margin:0;" id="dash-range" onchange="loadDashboard()">
+            <option value="today">Сегодня</option>
+            <option value="3">3 дня</option>
+            <option value="7" selected>7 дней</option>
+            <option value="30">30 дней</option>
+          </select>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon blue"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-total-messages">0</div>
+              <div class="stat-label">Сообщения</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-autonomy">0%</div>
+              <div class="stat-label">Автономия</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon yellow"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-leads">0</div>
+              <div class="stat-label">Заявки</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon red"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="stat-errors">0</div>
+              <div class="stat-label">Ошибки</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2-1">
+          <div>
+            <div class="section-title">Последние события</div>
+            <div class="events-list" id="dash-events">
+              <div class="loading">Загрузка...</div>
+            </div>
+          </div>
+          <div>
+            <div class="section-title">Статус системы</div>
+            <div class="status-box" id="dash-status">
+              <!-- JS rendered -->
+            </div>
+            
+            <div class="section-title" style="margin-top:24px;">Начало работы</div>
+            <div class="onboarding-list" id="dash-onboarding">
+              <!-- JS rendered -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI PROVIDERS VIEW -->
+      <div id="view-ai-providers" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">AI Провайдеры</div>
+        </div>
+        
+        <div class="cards-grid">
+          <!-- OpenRouter -->
+          <div class="app-card" onclick="openProviderConfig('openrouter')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">OpenRouter</div>
+              <div class="app-card-desc">Доступ к GPT-4, Claude и другим моделям через один API</div>
+              <div id="status-openrouter" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+            </div>
+            <div class="app-card-arrow"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>
+          </div>
+
+          <!-- DeepSeek -->
+          <div class="app-card" onclick="openProviderConfig('deepseek')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm-1-11v4h2v-4h-2zm0-4v2h2V7h-2z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">DeepSeek (Direct)</div>
+              <div class="app-card-desc">Прямое подключение к API DeepSeek для высокой скорости и низкой цены</div>
+              <div id="status-deepseek" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+            </div>
+            <div class="app-card-arrow"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg></div>
+          </div>
+          
+          <!-- Mock -->
+          <div class="app-card" onclick="openProviderConfig('mock')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">Mock (Offline)</div>
+              <div class="app-card-desc">Тестовый провайдер для разработки без затрат и интернета</div>
+              <div id="status-mock" class="status-badge active"><div class="status-dot"></div> Подключено</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Config Overlay (simplified for now) -->
+        <div id="provider-config-panel" class="hidden" style="margin-top:24px; padding:20px; background:white; border-radius:12px; border:1px solid #eaeaea;">
+          <h3 id="provider-config-title">Настройка</h3>
+          <div id="provider-config-form"></div>
+          <div style="margin-top:20px; display:flex; gap:12px;">
+            <button class="btn" onclick="saveProviderSettings()">Сохранить</button>
+            <button class="btn" style="background:#eee; color:#333;" onclick="testProviderConnection()">Проверить связь</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- INTEGRATIONS VIEW -->
+      <div id="view-integrations" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Интеграции</div>
+        </div>
+
+        <div class="cards-grid">
+          <div class="app-card" onclick="openSmtpConfig()">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">Email (SMTP)</div>
+              <div class="app-card-desc">Уведомления админа о новых заявках по почте</div>
+              <div id="status-smtp" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+            </div>
+          </div>
+
+          <div class="app-card">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm1 14h-2v-2h2v2zm0-4h-2V7h2v5z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">Supabase (CRM Sync)</div>
+              <div class="app-card-desc">Синхронизация заявок с облачной базой данных</div>
+              <div id="status-supabase" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="integration-config-panel" class="hidden" style="margin-top:24px; padding:20px; background:white; border-radius:12px; border:1px solid #eaeaea;">
+          <h3 id="integration-config-title">Настройка</h3>
+          <div id="integration-config-form"></div>
+          <div style="margin-top:20px; display:flex; gap:12px;">
+            <button class="btn" onclick="saveIntegrationSettings()">Сохранить</button>
+            <button id="btn-test-integration" class="btn" style="background:#eee; color:#333;" onclick="testIntegrationConnection()">Проверить связь</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONVERSATIONS VIEW -->
+      <div id="view-conversations" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Диалоги</div>
+        </div>
+        <div class="grid-1-2">
+          <div class="conv-list" id="conv-list-container">
+            <div class="loading">Загрузка диалогов...</div>
+          </div>
+          <div class="conv-chat">
+            <div id="chat-header" class="chat-header">Выберите диалог</div>
+            <div id="chat-messages" class="chat-messages"></div>
+            <div id="chat-input-area" class="chat-input-area hidden">
+              <input type="text" id="chat-input" placeholder="Введите сообщение от лица ассистента...">
+              <button class="btn" onclick="sendMessage()">Отправить</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LEADS VIEW -->
+      <div id="view-leads" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Заявки</div>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Гость</th>
+                <th>Контакт</th>
+                <th>Источник</th>
+                <th>Статус</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody id="leads-table-body">
+              <!-- JS rendered -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KB VIEW -->
+      <div id="view-kb" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">База знаний</div>
+          <button class="btn" onclick="reloadKB()">Обновить из файлов</button>
+        </div>
+        <div class="status-box" id="kb-status-info" style="margin-bottom:20px;"></div>
+        <div class="section-title">Содержимое</div>
+        <div id="kb-chunks-list" class="kb-chunks">
+          <!-- JS rendered -->
+        </div>
+      </div>
+
+      <!-- TEST CHAT VIEW -->
+      <div id="view-test-chat" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Тест чата</div>
+        </div>
+        <div class="conv-chat" style="height: calc(100vh - 160px);">
+          <div id="test-messages" class="chat-messages">
+             <div class="msg msg-assistant">Это тестовый чат. Здесь можно проверить, как ИИ отвечает на вопросы на основе базы знаний.</div>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" id="test-input" placeholder="Спросите что-нибудь у консьержа...">
+            <button class="btn" onclick="sendTestMessage()">Тест</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOGS VIEW -->
+      <div id="view-logs" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Центр проверки (Логи)</div>
+        </div>
+        <div class="events-list" id="logs-list">
+          <!-- JS rendered -->
+        </div>
+      </div>
+
+      <!-- SETTINGS VIEW -->
+      <div id="view-settings" class="view hidden">
+        <div class="page-header">
+          <div class="page-title">Общие настройки</div>
+        </div>
+        <div class="config-section">
+          <div class="form-group">
+            <label class="form-label">Активный AI провайдер</label>
+            <select class="form-input" id="setting-ai-provider">
+              <option value="openrouter">OpenRouter</option>
+              <option value="deepseek">DeepSeek Direct</option>
+              <option value="mock">Mock (Development)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Публичный URL сервера</label>
+            <input type="text" class="form-input" id="setting-public-url" placeholder="https://ai.4-am.ru">
+            <div class="form-desc">Используется для формирования ссылок в уведомлениях</div>
+          </div>
+          <button class="btn" onclick="saveGeneralSettings()">Сохранить настройки</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="console.js?v=6"></script>
+</body>
+</html>

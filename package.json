@@ -1,0 +1,31 @@
+{
+  "name": "bm-concierge-backend",
+  "version": "1.0.0",
+  "description": "Backend for the AI concierge of boutique hotel Большая Медведица",
+  "main": "dist/app.js",
+  "scripts": {
+    "start": "node dist/app.js",
+    "dev": "ts-node src/app.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node-fetch": "^2.6.13",
+    "@types/nodemailer": "^8.0.0",
+    "better-sqlite3": "^12.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-fetch": "^2.7.0",
+    "nodemailer": "^8.0.10",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.12",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}

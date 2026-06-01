@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: bm-concierge-backend
+    restart: unless-stopped
+    ports:
+      # Expose only to localhost so Nginx can proxy it. Do not expose publicly.
+      - "127.0.0.1:3010:3010"
+    volumes:
+      # Mount data folder for SQLite persistence
+      - ./data:/app/data
+      # Mount knowledge base so it can be updated without rebuilding
+      - ./src/knowledge:/app/src/knowledge
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      # Paths relative to WORKDIR inside the container
+      - DB_PATH=./data/console.db
+      - DEV_CONFIG_PATH=./data/dev-settings.json
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
