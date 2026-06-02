@@ -1,4 +1,4 @@
-import { dbStore } from './dbStore';
+import { dbStore, normalizeConversationStatus } from './dbStore';
 import { conciergeEngine } from './conciergeEngine';
 import { LeadExtractor } from './leadExtractor';
 import { supabaseWriter } from '../integrations/supabaseLeads';
@@ -22,6 +22,8 @@ export type ConversationServiceResult = {
   leadId?: string | null;
   supabaseStatus?: 'draft' | 'sending' | 'sent' | 'error';
   metadata?: unknown;
+  /** true, если ИИ не отвечал из-за ручного режима/закрытого диалога (Pass 3). */
+  aiSkipped?: boolean;
 };
 
 export class ConversationService {
@@ -40,8 +42,31 @@ export class ConversationService {
       conv = dbStore.getConversation(externalConversationId);
     }
 
-    // 2. Сохраняем сообщение пользователя
+    // 2. Сохраняем сообщение пользователя (всегда, даже в ручном/закрытом режиме — не теряем входящие)
     dbStore.addMessage(externalConversationId, 'guest', message);
+
+    // 2.1 GUARD ручного режима/закрытого диалога (Pass 3).
+    // Читаем СВЕЖЕЕ состояние после сохранения входящего и ПЕРЕД генерацией ответа (анти-гонка):
+    // оператор мог взять диалог или закрыть его между сообщениями.
+    const stateConv = dbStore.getConversation(externalConversationId) as any;
+    const isManual = stateConv ? (stateConv.manual_mode === 1 || stateConv.manual_mode === true) : false;
+    const isClosed = stateConv ? normalizeConversationStatus(stateConv.status) === 'closed' : false;
+    if (isManual || isClosed) {
+      // ИИ не вызывается, ответ в канал не генерируется, авто-заявка не создаётся.
+      dbStore.logEvent(
+        isClosed ? 'AI_SKIPPED_CLOSED' : 'AI_SKIPPED_MANUAL_MODE',
+        `ИИ не отвечает (${isClosed ? 'closed' : 'manual'}) в диалоге ${externalConversationId}`,
+        { convId: externalConversationId, channel }
+      );
+      return {
+        reply: '',
+        conversationId: externalConversationId,
+        leadCreated: false,
+        leadId: null,
+        supabaseStatus: 'draft',
+        aiSkipped: true,
+      };
+    }
 
     // 3. Анализируем интенты
     const isLead = LeadExtractor.isPotentialLead(message);

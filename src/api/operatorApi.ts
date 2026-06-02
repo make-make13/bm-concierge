@@ -74,6 +74,46 @@ function mapConversationSummary(row: any) {
   };
 }
 
+/** Полный объект диалога (как для GET /conversations/:id), используется и в POST-мутациях. */
+function mapConversationDetail(conv: any) {
+  return {
+    id: conv.id,
+    channel: conv.channel ?? null,
+    guestName: conv.guest_name ?? null,
+    guestContact: conv.guest_contact ?? null,
+    status: normalizeConversationStatus(conv.status),
+    manualMode: toBool(conv.manual_mode),
+    needsAttention: toBool(conv.needs_attention),
+    escalationReason: conv.escalation_reason ?? null,
+    assignedTo: conv.assigned_to ?? null,
+    aiSummary: conv.ai_summary ?? null,
+    linkedLeadId: conv.linked_lead_id ?? null,
+    createdAt: conv.created_at ?? null,
+    lastMessageAt: conv.last_message_at ?? conv.updated_at ?? null,
+    messages: (conv.messages || []).map((m: any) => ({
+      id: m.id,
+      role: m.role,
+      text: m.text,
+      createdAt: m.created_at ?? null,
+    })),
+    lead: conv.lead ?? null,
+  };
+}
+
+/**
+ * Загружает диалог с обработкой ошибок. Если БД не готова → 503 (через withDb),
+ * если диалог не найден → 404. В обоих случаях ответ уже отправлен и возвращается undefined.
+ */
+function fetchConversationOrRespond(res: Response, id: string): any | undefined {
+  const conv = withDb(res, () => dbStore.getConversation(id) as any);
+  if (conv === undefined) return undefined; // 503 уже отправлен
+  if (!conv) {
+    sendError(res, 404, 'not_found', 'Conversation not found');
+    return undefined;
+  }
+  return conv;
+}
+
 // --- GET /api/operator/status ---
 operatorRouter.get('/status', (req: Request, res: Response) => {
   let counts = { open: 0, needsAttention: 0, operator: 0 };
@@ -143,34 +183,56 @@ operatorRouter.get('/conversations', (req: Request, res: Response) => {
 
 // --- GET /api/operator/conversations/:id ---
 operatorRouter.get('/conversations/:id', (req: Request, res: Response) => {
-  const conv = withDb(res, () => dbStore.getConversation(req.params.id) as any);
-  if (conv === undefined) return; // 503 уже отправлен
-  if (!conv) {
-    return sendError(res, 404, 'not_found', 'Conversation not found');
-  }
+  const conv = fetchConversationOrRespond(res, req.params.id);
+  if (!conv) return; // 503/404 уже отправлены
+  res.json(mapConversationDetail(conv));
+});
 
-  res.json({
-    id: conv.id,
-    channel: conv.channel ?? null,
-    guestName: conv.guest_name ?? null,
-    guestContact: conv.guest_contact ?? null,
-    status: normalizeConversationStatus(conv.status),
-    manualMode: toBool(conv.manual_mode),
-    needsAttention: toBool(conv.needs_attention),
-    escalationReason: conv.escalation_reason ?? null,
-    assignedTo: conv.assigned_to ?? null,
-    aiSummary: conv.ai_summary ?? null,
-    linkedLeadId: conv.linked_lead_id ?? null,
-    createdAt: conv.created_at ?? null,
-    lastMessageAt: conv.last_message_at ?? conv.updated_at ?? null,
-    messages: (conv.messages || []).map((m: any) => ({
-      id: m.id,
-      role: m.role,
-      text: m.text,
-      createdAt: m.created_at ?? null,
-    })),
-    lead: conv.lead ?? null,
-  });
+// --- POST /api/operator/conversations/:id/take-over ---
+// Перевод диалога в ручной режим оператора. Идемпотентно.
+operatorRouter.post('/conversations/:id/take-over', (req: Request, res: Response) => {
+  try {
+    const conv = fetchConversationOrRespond(res, req.params.id);
+    if (!conv) return;
+    if (normalizeConversationStatus(conv.status) === 'closed') {
+      return sendError(res, 409, 'conversation_closed', 'Cannot take over a closed conversation');
+    }
+    const raw = req.body && typeof req.body.assignedTo === 'string' ? req.body.assignedTo.trim() : '';
+    const assignedTo = raw || 'admin';
+    dbStore.setConversationManualMode(req.params.id, true, assignedTo);
+    res.json(mapConversationDetail(dbStore.getConversation(req.params.id)));
+  } catch (err: any) {
+    sendError(res, 500, 'internal_error', err?.message || 'take-over failed');
+  }
+});
+
+// --- POST /api/operator/conversations/:id/return-to-ai ---
+// Возврат диалога ИИ. Закрытый диалог не оживляем (нет reopen endpoint) → 409.
+operatorRouter.post('/conversations/:id/return-to-ai', (req: Request, res: Response) => {
+  try {
+    const conv = fetchConversationOrRespond(res, req.params.id);
+    if (!conv) return;
+    if (normalizeConversationStatus(conv.status) === 'closed') {
+      return sendError(res, 409, 'conversation_closed', 'Cannot return a closed conversation to AI');
+    }
+    dbStore.setConversationManualMode(req.params.id, false);
+    res.json(mapConversationDetail(dbStore.getConversation(req.params.id)));
+  } catch (err: any) {
+    sendError(res, 500, 'internal_error', err?.message || 'return-to-ai failed');
+  }
+});
+
+// --- POST /api/operator/conversations/:id/close ---
+// Закрытие диалога. После этого ИИ не отвечает (guard в conversationService). Идемпотентно.
+operatorRouter.post('/conversations/:id/close', (req: Request, res: Response) => {
+  try {
+    const conv = fetchConversationOrRespond(res, req.params.id);
+    if (!conv) return;
+    dbStore.setConversationStatus(req.params.id, 'closed');
+    res.json(mapConversationDetail(dbStore.getConversation(req.params.id)));
+  } catch (err: any) {
+    sendError(res, 500, 'internal_error', err?.message || 'close failed');
+  }
 });
 
 // --- GET /api/operator/knowledge/status ---
