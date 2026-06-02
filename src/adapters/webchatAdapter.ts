@@ -47,9 +47,13 @@ export class WebchatAdapter extends BaseAdapter {
             raw: { sessionId, pageUrl, referrer }
           });
 
+          // Guard (Pass 4A): в ручном/закрытом режиме ИИ молчит. Не отдаём пустой reply
+          // как видимый ответ ИИ: reply=null + aiSkipped=true, чтобы виджет не рисовал пустой «пузырь».
+          const aiSkipped = response.aiSkipped === true || !response.reply?.trim();
           return res.json({
             sessionId,
-            reply: response.reply,
+            reply: aiSkipped ? null : response.reply,
+            aiSkipped,
             leadCreated: response.leadCreated,
             leadId: response.leadId,
             supabaseStatus: response.supabaseStatus || 'draft',

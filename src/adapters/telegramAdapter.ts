@@ -60,6 +60,12 @@ export class TelegramAdapter extends BaseAdapter {
             message: messageText
           });
 
+          // Guard (Pass 4A): в ручном/закрытом режиме ИИ молчит — не отправляем пустой ответ
+          // и не уходим в catch/fallback. Входящее сообщение уже сохранено в conversationService.
+          if (result.aiSkipped || !result.reply?.trim()) {
+            return;
+          }
+
           // Отправляем ответ пользователю
           await ctx.reply(result.reply);
 

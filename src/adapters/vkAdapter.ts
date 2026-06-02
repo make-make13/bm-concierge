@@ -84,6 +84,12 @@ export class VkAdapter extends BaseAdapter {
             raw: { peerId, fromId, msgId: msg.id }
           });
 
+          // Guard (Pass 4A): в ручном/закрытом режиме ИИ молчит — не вызываем messages.send
+          // с пустым текстом и не считаем это ошибкой доставки. Входящее уже сохранено.
+          if (result.aiSkipped || !result.reply?.trim()) {
+            return;
+          }
+
           // Отправляем ответ в VK
           await this.sendVkMessage(peerId, result.reply, token);
         }
