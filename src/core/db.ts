@@ -66,6 +66,44 @@ export function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Idempotent migrations for Operator API / manual operator mode (Pass 1).
+  ensureConversationColumns(db);
+}
+
+/**
+ * Безопасно добавляет недостающие колонки в `conversations` через ALTER TABLE ADD COLUMN.
+ * Идемпотентно: проверяет PRAGMA table_info, не пересоздаёт таблицу, не трогает данные
+ * и существующие колонки. Каждое добавление можно выполнять повторно без ошибок.
+ */
+function ensureConversationColumns(database: Database.Database) {
+  const columns = (database.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>)
+    .map((c) => c.name);
+
+  // Новые колонки и их DDL. last_message_at — без DEFAULT CURRENT_TIMESTAMP:
+  // SQLite запрещает непостоянный DEFAULT в ALTER TABLE ADD COLUMN.
+  const additions: Array<{ name: string; ddl: string }> = [
+    { name: 'manual_mode', ddl: 'manual_mode INTEGER DEFAULT 0' },
+    { name: 'needs_attention', ddl: 'needs_attention INTEGER DEFAULT 0' },
+    { name: 'escalation_reason', ddl: 'escalation_reason TEXT' },
+    { name: 'assigned_to', ddl: 'assigned_to TEXT' },
+    { name: 'linked_lead_id', ddl: 'linked_lead_id TEXT' },
+    { name: 'ai_summary', ddl: 'ai_summary TEXT' },
+    { name: 'last_message_at', ddl: 'last_message_at DATETIME' },
+  ];
+
+  for (const { name, ddl } of additions) {
+    if (!columns.includes(name)) {
+      database.exec(`ALTER TABLE conversations ADD COLUMN ${ddl}`);
+    }
+  }
+
+  // Безопасный backfill last_message_at из updated_at (если обе колонки доступны).
+  const columnsAfter = (database.prepare('PRAGMA table_info(conversations)').all() as Array<{ name: string }>)
+    .map((c) => c.name);
+  if (columnsAfter.includes('last_message_at') && columnsAfter.includes('updated_at')) {
+    database.exec('UPDATE conversations SET last_message_at = updated_at WHERE last_message_at IS NULL');
+  }
 }
 
 export function getDb(): Database.Database {

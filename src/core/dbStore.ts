@@ -5,6 +5,62 @@ function uuid() {
   return crypto.randomUUID();
 }
 
+/**
+ * Допустимые статусы диалога (Operator API / ручной режим, Pass 1).
+ * Старый статус 'open' оставлен в БД совместимым и на чтении трактуется как 'ai'
+ * через normalizeConversationStatus().
+ */
+export const CONVERSATION_STATUSES = [
+  'ai',
+  'needs_attention',
+  'operator',
+  'lead_created',
+  'closed',
+  'error',
+] as const;
+
+export type ConversationStatus = (typeof CONVERSATION_STATUSES)[number];
+
+/** Допустимые роли сообщений. 'operator' — ручной ответ администратора. */
+export const MESSAGE_ROLES = ['guest', 'assistant', 'operator'] as const;
+export type MessageRole = (typeof MESSAGE_ROLES)[number];
+
+/** Сырая строка conversations (snake_case, как в SQLite). */
+export interface ConversationRow {
+  id: string;
+  channel: string;
+  guest_name: string;
+  guest_contact: string;
+  status: string;
+  manual_mode: number;
+  needs_attention: number;
+  escalation_reason: string | null;
+  assigned_to: string | null;
+  linked_lead_id: string | null;
+  ai_summary: string | null;
+  last_message_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Сырая строка messages (snake_case, как в SQLite). */
+export interface MessageRow {
+  id: string;
+  conversation_id: string;
+  role: string;
+  text: string;
+  raw_json: string | null;
+  created_at: string;
+}
+
+/** Нормализует статус для чтения: legacy 'open'/пусто → 'ai'. */
+export function normalizeConversationStatus(status?: string | null): ConversationStatus {
+  if (!status || status === 'open') return 'ai';
+  return (CONVERSATION_STATUSES as readonly string[]).includes(status)
+    ? (status as ConversationStatus)
+    : 'ai';
+}
+
 export const dbStore = {
   // --- Conversations ---
   getConversations() {
@@ -30,6 +86,91 @@ export const dbStore = {
 
   updateConversationStatus(id: string, status: string) {
     getDb().prepare('UPDATE conversations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(status, id);
+  },
+
+  // --- Conversations: Operator API helpers (Pass 1) ---
+
+  /**
+   * Список диалогов с опциональной фильтрацией.
+   * filter: 'all' (по умолчанию) | 'needs_attention' | 'operator' | 'open'/'ai'.
+   */
+  listConversations(opts: { filter?: string; limit?: number; offset?: number } = {}) {
+    const { filter = 'all', limit = 50, offset = 0 } = opts;
+    let where = '';
+    if (filter === 'needs_attention') {
+      where = 'WHERE needs_attention = 1';
+    } else if (filter === 'operator') {
+      where = "WHERE status = 'operator' OR manual_mode = 1";
+    } else if (filter === 'open' || filter === 'ai') {
+      where = "WHERE status IN ('ai', 'open') OR status IS NULL";
+    }
+    return getDb()
+      .prepare(`SELECT * FROM conversations ${where} ORDER BY COALESCE(last_message_at, updated_at) DESC LIMIT ? OFFSET ?`)
+      .all(limit, offset);
+  },
+
+  /** Сообщения диалога в хронологическом порядке (без вложенной выборки lead/conversation). */
+  getConversationMessages(id: string) {
+    return getDb().prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(id);
+  },
+
+  /** Включить/выключить ручной режим оператора. При включении выставляет status='operator' и снимает needs_attention. */
+  setConversationManualMode(id: string, enabled: boolean, assignedTo?: string) {
+    if (enabled) {
+      getDb()
+        .prepare(
+          "UPDATE conversations SET manual_mode = 1, status = 'operator', needs_attention = 0, assigned_to = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        )
+        .run(assignedTo ?? null, id);
+    } else {
+      getDb()
+        .prepare(
+          "UPDATE conversations SET manual_mode = 0, status = 'ai', needs_attention = 0, assigned_to = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        )
+        .run(id);
+    }
+  },
+
+  /** Пометить диалог как требующий администратора (или снять пометку при reason=null). */
+  setConversationNeedsAttention(id: string, reason?: string | null) {
+    const needs = reason === null ? 0 : 1;
+    const newReason = reason === null ? null : reason ?? null;
+    if (needs) {
+      getDb()
+        .prepare(
+          "UPDATE conversations SET needs_attention = 1, escalation_reason = ?, status = CASE WHEN status IN ('operator','closed','lead_created') THEN status ELSE 'needs_attention' END, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        )
+        .run(newReason, id);
+    } else {
+      getDb()
+        .prepare('UPDATE conversations SET needs_attention = 0, escalation_reason = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+        .run(id);
+    }
+  },
+
+  /** Установить статус диалога (валидируется по CONVERSATION_STATUSES). */
+  setConversationStatus(id: string, status: ConversationStatus) {
+    const safe: ConversationStatus = (CONVERSATION_STATUSES as readonly string[]).includes(status) ? status : 'ai';
+    getDb().prepare('UPDATE conversations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(safe, id);
+  },
+
+  /** Привязать локальный lead к диалогу и пометить status='lead_created'. */
+  setConversationLinkedLead(id: string, leadId: string) {
+    getDb()
+      .prepare("UPDATE conversations SET linked_lead_id = ?, status = 'lead_created', updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+      .run(leadId, id);
+  },
+
+  /** Обновить краткое AI-резюме диалога. */
+  updateConversationAiSummary(id: string, summary: string) {
+    getDb().prepare('UPDATE conversations SET ai_summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(summary, id);
+  },
+
+  /** Обновить отметку времени последнего сообщения. */
+  touchConversationLastMessage(id: string) {
+    getDb()
+      .prepare('UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
+      .run(id);
   },
 
   // --- Messages ---
