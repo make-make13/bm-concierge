@@ -1,7 +1,9 @@
 import { BaseAdapter } from './baseAdapter';
 import { config } from '../config';
-import { conciergeEngine } from '../core/conciergeEngine';
-import { ChatMessageRequest } from '../types/chat';
+import { conversationService } from '../core/conversationService';
+import fetch from 'node-fetch';
+
+const VK_API_VERSION = '5.199';
 
 export class VkAdapter extends BaseAdapter {
   constructor() {
@@ -10,42 +12,118 @@ export class VkAdapter extends BaseAdapter {
 
   public async start(app?: any): Promise<void> {
     if (!this.isEnabled()) {
-      console.log('[VkAdapter] Disabled in config.');
+      console.log('[VkAdapter] disabled by config');
+      return;
+    }
+
+    if (!app) {
+      console.warn('[VkAdapter] Express app not provided, cannot register webhook');
       return;
     }
 
     const token = config.vk.groupToken;
-    if (!token) {
-      console.error('[VkAdapter] Group token is missing, cannot start.');
+    const confirmationToken = config.vk.confirmationToken;
+    const secretKey = config.vk.secretKey;
+
+    if (!token || !confirmationToken) {
+      console.error('[VkAdapter] groupToken or confirmationToken missing, cannot start');
       return;
     }
 
-    try {
-      console.log('[VkAdapter] Starting... (Stub)');
+    console.log('[VkAdapter] Registering webhook at /webhooks/vk');
 
-      // В будущем здесь можно использовать библиотеку vk-io
-      // или зарегистрировать webhook route в express:
-      // if (app) {
-      //   app.post('/api/webhook/vk', (req, res) => { ... });
-      // }
-      
-      // Пример того, как будет вызываться обработка:
-      // const request: ChatMessageRequest = {
-      //   message: 'Текст от пользователя ВК',
-      //   channel: 'vk_ai',
-      //   guestName: 'Имя ВК',
-      //   guestContact: 'https://vk.com/id12345',
-      // };
-      // const response = await conciergeEngine.processMessage(request);
-      // await vkApi.sendMessage(response.reply);
+    app.post('/webhooks/vk', async (req: any, res: any) => {
+      try {
+        const body = req.body;
 
-    } catch (error) {
-      console.error('[VkAdapter] Failed to start:', error);
+        // Проверка секрета (если настроен)
+        if (secretKey && body.secret !== secretKey) {
+          console.warn('[VkAdapter] Invalid secret key in request');
+          return res.status(403).send('forbidden');
+        }
+
+        // Подтверждение сервера VK
+        if (body.type === 'confirmation') {
+          return res.send(confirmationToken);
+        }
+
+        // VK ждёт немедленный ответ 'ok'
+        res.send('ok');
+
+        if (body.type === 'message_new') {
+          const msg = body.object?.message;
+          if (!msg) return;
+
+          const peerId: number = msg.peer_id;
+          const fromId: number = msg.from_id;
+          const text: string = (msg.text || '').trim();
+
+          // Игнорируем пустые и служебные сообщения
+          if (!text) return;
+
+          const externalConversationId = `vk:${peerId}`;
+
+          // Получаем имя пользователя через VK API
+          let guestName = `VK пользователь ${fromId}`;
+          try {
+            const userInfo = await this.getVkUserName(fromId, token);
+            if (userInfo) guestName = userInfo;
+          } catch (e) {
+            // не критично
+          }
+
+          const guestContact = `https://vk.com/id${fromId}`;
+
+          const result = await conversationService.processMessage({
+            channel: 'vk',
+            source: 'vk_ai',
+            externalConversationId,
+            guestName,
+            guestContact,
+            message: text,
+            raw: { peerId, fromId, msgId: msg.id }
+          });
+
+          // Отправляем ответ в VK
+          await this.sendVkMessage(peerId, result.reply, token);
+        }
+      } catch (err) {
+        console.error('[VkAdapter] Error handling webhook:', err);
+        // res уже отправлен выше
+      }
+    });
+
+    console.log('[VkAdapter] started, listening at /webhooks/vk');
+  }
+
+  private async getVkUserName(userId: number, token: string): Promise<string | null> {
+    const url = `https://api.vk.com/method/users.get?user_ids=${userId}&access_token=${token}&v=${VK_API_VERSION}`;
+    const resp = await fetch(url);
+    const data: any = await resp.json();
+    if (data.response && data.response[0]) {
+      const u = data.response[0];
+      return [u.first_name, u.last_name].filter(Boolean).join(' ') || null;
+    }
+    return null;
+  }
+
+  private async sendVkMessage(peerId: number, message: string, token: string): Promise<void> {
+    const randomId = Math.floor(Math.random() * 1e9);
+    const url = new URL('https://api.vk.com/method/messages.send');
+    url.searchParams.set('peer_id', String(peerId));
+    url.searchParams.set('message', message);
+    url.searchParams.set('random_id', String(randomId));
+    url.searchParams.set('access_token', token);
+    url.searchParams.set('v', VK_API_VERSION);
+
+    const resp = await fetch(url.toString(), { method: 'POST' });
+    const data: any = await resp.json();
+    if (data.error) {
+      console.error('[VkAdapter] VK API error:', data.error);
     }
   }
 
   public stop(): void {
-    console.log('[VkAdapter] Stopping...');
-    // Очистка ресурсов, если потребуется
+    console.log('[VkAdapter] stopped');
   }
 }

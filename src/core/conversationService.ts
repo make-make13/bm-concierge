@@ -47,7 +47,18 @@ export class ConversationService {
     const isLead = LeadExtractor.isPotentialLead(message);
 
     // 4. Генерируем ответ через ИИ
-    const aiReply = await conciergeEngine.generateReply(message);
+    const currentConv = dbStore.getConversation(externalConversationId);
+    let history: { role: string, content: string }[] = [];
+    if (currentConv && currentConv.messages.length > 1) {
+       // Берем последние 10, исключая последнее (так как оно уже в `message`)
+       const pastMessages = currentConv.messages.slice(-11, -1);
+       history = pastMessages.map((msg: any) => ({
+         role: msg.role === 'guest' ? 'user' : 'assistant',
+         content: msg.text
+       }));
+    }
+
+    const aiReply = await conciergeEngine.generateReply(message, history, guestName);
     const replyText = aiReply.text;
 
     // 5. Сохраняем ответ ИИ

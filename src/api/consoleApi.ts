@@ -9,21 +9,52 @@ import { smtpService } from '../integrations/smtpService';
 
 export const consoleRouter = Router();
 
+// --- Login endpoint (no auth required) ---
+consoleRouter.post('/login', (req: Request, res: Response) => {
+  if (!config.consoleEnabled) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const { token } = req.body;
+  if (!config.consoleToken || token !== config.consoleToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  // Set httpOnly session cookie valid 8 hours
+  res.cookie('console_session', token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 8 * 60 * 60 * 1000,
+    path: '/'
+  });
+  res.json({ success: true });
+});
+
 // --- Auth Middleware ---
 consoleRouter.use((req: Request, res: Response, next) => {
   if (!config.consoleEnabled) {
     return res.status(404).json({ error: 'Not found' });
   }
-  
+
   if (config.consoleToken) {
-    const token = req.headers['x-console-token'] || req.query.token;
+    // Accept: httpOnly cookie, X-Console-Token header, or query param
+    const cookieToken = parseCookies(req.headers.cookie || '')['console_session'];
+    const headerToken = req.headers['x-console-token'] || req.query.token;
+    const token = cookieToken || headerToken;
     if (token !== config.consoleToken) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
   }
-  
+
   next();
 });
+
+function parseCookies(cookieHeader: string): Record<string, string> {
+  return Object.fromEntries(
+    cookieHeader.split(';').map(c => c.trim().split('=').map(decodeURIComponent))
+      .filter(p => p.length === 2).map(([k, v]) => [k.trim(), v.trim()])
+  );
+}
 
 // --- Dashboard ---
 consoleRouter.get('/dashboard', (req: Request, res: Response) => {
@@ -85,9 +116,23 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
     SUPABASE_SERVICE_ROLE_KEY: config.supabase.serviceRoleKey ? 'configured' : '',
     SUPABASE_LEADS_TABLE: config.supabase.leadsTable,
 
-    PUBLIC_BASE_URL: config.publicBaseUrl
+    PUBLIC_BASE_URL: config.publicBaseUrl,
+
+    TELEGRAM_ENABLED: config.telegram.enabled,
+    TELEGRAM_BOT_TOKEN: config.telegram.botToken ? 'configured' : '',
+    TELEGRAM_ADMIN_ID: config.telegram.adminId,
+    TELEGRAM_MODE: config.telegram.mode,
+    TELEGRAM_WEBHOOK_URL: config.telegram.webhookUrl,
+
+    VK_ENABLED: config.vk.enabled,
+    VK_GROUP_TOKEN: config.vk.groupToken ? 'configured' : '',
+    VK_CONFIRMATION_TOKEN: config.vk.confirmationToken ? 'configured' : '',
+    VK_SECRET_KEY: config.vk.secretKey ? 'configured' : '',
+
+    WEBCHAT_ENABLED: config.webchat.enabled,
+    WEBCHAT_ALLOWED_ORIGINS: config.webchat.allowedOrigins,
   };
-  
+
   res.json(maskedSettings);
 });
 
@@ -202,6 +247,16 @@ consoleRouter.post('/leads/:id/send', async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// --- Supabase Test ---
+consoleRouter.post('/supabase/test', async (req: Request, res: Response) => {
+  try {
+    const result = await supabaseWriter.testConnection();
+    res.json(result);
+  } catch (err: any) {
+    res.json({ success: false, error: err.message });
   }
 });
 

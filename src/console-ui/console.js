@@ -165,29 +165,261 @@ async function updateProviderStatuses() {
   }
 }
 
-async function updateIntegrationStatuses() {
-    const smtpStatus = document.getElementById('status-smtp');
-    if (smtpStatus) {
-        if (settings.SMTP_ENABLED === true || settings.SMTP_ENABLED === 'true') {
-            smtpStatus.className = 'status-badge active';
-            smtpStatus.innerHTML = '<div class="status-dot"></div> Активен';
-        } else {
-            smtpStatus.className = 'status-badge';
-            smtpStatus.innerHTML = '<div class="status-dot"></div> Выключен';
-        }
-    }
-
-    const supaStatus = document.getElementById('status-supabase');
-    if (supaStatus) {
-        if (settings.SUPABASE_URL) {
-            supaStatus.className = 'status-badge active';
-            supaStatus.innerHTML = '<div class="status-dot"></div> Настроено';
-        } else {
-            supaStatus.className = 'status-badge';
-            supaStatus.innerHTML = '<div class="status-dot"></div> Ошибка';
-        }
-    }
+function setStatus(id, active, label) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'status-badge' + (active ? ' active' : '');
+  el.innerHTML = '<div class="status-dot"></div> ' + label;
 }
+
+function isOn(val) { return val === true || val === 'true'; }
+function isConfigured(val) { return val && val !== '' && val !== 'configured' ? true : val === 'configured'; }
+
+async function updateIntegrationStatuses() {
+  setStatus('status-smtp', isOn(settings.SMTP_ENABLED), isOn(settings.SMTP_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-supabase', isConfigured(settings.SUPABASE_URL), isConfigured(settings.SUPABASE_URL) ? 'Настроено' : 'Не настроено');
+  setStatus('status-telegram', isOn(settings.TELEGRAM_ENABLED), isOn(settings.TELEGRAM_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-vk', isOn(settings.VK_ENABLED), isOn(settings.VK_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-webchat', isOn(settings.WEBCHAT_ENABLED), isOn(settings.WEBCHAT_ENABLED) ? 'Активен' : 'Выключен');
+}
+
+// --- Integration Config ---
+let activeIntegrationConfig = '';
+
+function closeIntegrationPanel() {
+  document.getElementById('integration-config-panel').classList.add('hidden');
+  document.getElementById('integration-test-result').style.display = 'none';
+}
+
+function openIntegrationConfig(type) {
+  activeIntegrationConfig = type;
+  const panel = document.getElementById('integration-config-panel');
+  const title = document.getElementById('integration-config-title');
+  const form = document.getElementById('integration-config-form');
+  const testResult = document.getElementById('integration-test-result');
+  panel.classList.remove('hidden');
+  testResult.style.display = 'none';
+
+  if (type === 'smtp') {
+    title.textContent = 'Настройка SMTP';
+    form.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Включить уведомления</label>
+        <select class="form-input" id="cfg-smtp-enabled">
+          <option value="true" ${isOn(settings.SMTP_ENABLED) ? 'selected' : ''}>Да</option>
+          <option value="false" ${!isOn(settings.SMTP_ENABLED) ? 'selected' : ''}>Нет</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">SMTP Host</label>
+        <input type="text" class="form-input" id="cfg-smtp-host" value="${settings.SMTP_HOST || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Порт</label>
+        <input type="number" class="form-input" id="cfg-smtp-port" value="${settings.SMTP_PORT || 465}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Логин</label>
+        <input type="text" class="form-input" id="cfg-smtp-user" value="${settings.SMTP_USER || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Пароль</label>
+        <input type="password" class="form-input" id="cfg-smtp-pass" placeholder="${settings.SMTP_PASSWORD === 'configured' ? '••••••••' : 'Введите пароль...'}">
+        <div class="form-desc">${settings.SMTP_PASSWORD === 'configured' ? 'Пароль сохранён. Оставьте пустым, чтобы не менять.' : ''}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Имя отправителя</label>
+        <input type="text" class="form-input" id="cfg-smtp-from-name" value="${settings.SMTP_FROM_NAME || 'БМ Консьерж'}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email отправителя</label>
+        <input type="email" class="form-input" id="cfg-smtp-from-email" value="${settings.SMTP_FROM_EMAIL || ''}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email администратора (получатель)</label>
+        <input type="email" class="form-input" id="cfg-smtp-admin" value="${settings.ADMIN_NOTIFICATION_EMAIL || ''}">
+      </div>
+    `;
+  } else if (type === 'supabase') {
+    title.textContent = 'Настройка Supabase';
+    form.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">URL проекта</label>
+        <input type="text" class="form-input" id="cfg-supa-url" value="${settings.SUPABASE_URL || ''}" placeholder="https://xxx.supabase.co">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Service Role Key</label>
+        <input type="password" class="form-input" id="cfg-supa-key" placeholder="${settings.SUPABASE_SERVICE_ROLE_KEY === 'configured' ? '••••••••' : 'eyJ...'}">
+        <div class="form-desc">${settings.SUPABASE_SERVICE_ROLE_KEY === 'configured' ? 'Ключ сохранён. Оставьте пустым, чтобы не менять.' : ''}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Таблица заявок</label>
+        <input type="text" class="form-input" id="cfg-supa-table" value="${settings.SUPABASE_LEADS_TABLE || 'leads'}">
+      </div>
+    `;
+  } else if (type === 'telegram') {
+    title.textContent = 'Настройка Telegram';
+    form.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Включить</label>
+        <select class="form-input" id="cfg-tg-enabled">
+          <option value="true" ${isOn(settings.TELEGRAM_ENABLED) ? 'selected' : ''}>Да</option>
+          <option value="false" ${!isOn(settings.TELEGRAM_ENABLED) ? 'selected' : ''}>Нет</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bot Token</label>
+        <input type="password" class="form-input" id="cfg-tg-token" placeholder="${settings.TELEGRAM_BOT_TOKEN === 'configured' ? '••••••••' : '123456:ABC...'}">
+        <div class="form-desc">${settings.TELEGRAM_BOT_TOKEN === 'configured' ? 'Токен сохранён. Оставьте пустым, чтобы не менять.' : ''}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Режим подключения</label>
+        <select class="form-input" id="cfg-tg-mode">
+          <option value="polling" ${settings.TELEGRAM_MODE === 'polling' ? 'selected' : ''}>Polling</option>
+          <option value="webhook" ${settings.TELEGRAM_MODE === 'webhook' ? 'selected' : ''}>Webhook</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Webhook URL (только для webhook-режима)</label>
+        <input type="text" class="form-input" id="cfg-tg-webhook" value="${settings.TELEGRAM_WEBHOOK_URL || ''}" placeholder="https://ai.4-am.ru/webhooks/telegram">
+      </div>
+      <div class="form-desc" style="margin-top:8px;">После изменения токена потребуется перезапуск сервера.</div>
+    `;
+  } else if (type === 'vk') {
+    title.textContent = 'Настройка ВКонтакте';
+    form.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Включить</label>
+        <select class="form-input" id="cfg-vk-enabled">
+          <option value="true" ${isOn(settings.VK_ENABLED) ? 'selected' : ''}>Да</option>
+          <option value="false" ${!isOn(settings.VK_ENABLED) ? 'selected' : ''}>Нет</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Токен группы</label>
+        <input type="password" class="form-input" id="cfg-vk-token" placeholder="${settings.VK_GROUP_TOKEN === 'configured' ? '••••••••' : 'vk1.a...'}">
+        <div class="form-desc">${settings.VK_GROUP_TOKEN === 'configured' ? 'Токен сохранён. Оставьте пустым, чтобы не менять.' : ''}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Код подтверждения сервера</label>
+        <input type="text" class="form-input" id="cfg-vk-confirm" placeholder="${settings.VK_CONFIRMATION_TOKEN === 'configured' ? '••••••••' : 'из настроек Callback API'}">
+        <div class="form-desc">${settings.VK_CONFIRMATION_TOKEN === 'configured' ? 'Код сохранён.' : ''}</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Секретный ключ (Secret Key)</label>
+        <input type="password" class="form-input" id="cfg-vk-secret" placeholder="${settings.VK_SECRET_KEY === 'configured' ? '••••••••' : 'Опционально'}">
+      </div>
+      <div class="form-desc" style="margin-top:8px;">Webhook URL для VK: <code style="font-family:monospace; background:rgba(255,255,255,.07); padding:2px 6px; border-radius:4px;">${window.location.origin}/webhooks/vk</code></div>
+    `;
+  } else if (type === 'webchat') {
+    title.textContent = 'Настройка WebChat';
+    form.innerHTML = `
+      <div class="form-group">
+        <label class="form-label">Включить виджет</label>
+        <select class="form-input" id="cfg-wc-enabled">
+          <option value="true" ${isOn(settings.WEBCHAT_ENABLED) ? 'selected' : ''}>Да</option>
+          <option value="false" ${!isOn(settings.WEBCHAT_ENABLED) ? 'selected' : ''}>Нет</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Разрешённые Origins (через запятую)</label>
+        <input type="text" class="form-input" id="cfg-wc-origins" value="${settings.WEBCHAT_ALLOWED_ORIGINS || ''}">
+        <div class="form-desc">Например: https://4-am.ru,https://www.4-am.ru</div>
+      </div>
+      <div class="form-desc" style="margin-top:8px;">
+        Подключите виджет на сайт:<br>
+        <code style="font-family:monospace; background:rgba(255,255,255,.07); padding:2px 6px; border-radius:4px; font-size:11px;">&lt;script src="${window.location.origin}/widget.js"&gt;&lt;/script&gt;</code>
+      </div>
+    `;
+    // Скрываем кнопку "Проверить связь" — не применима
+    document.getElementById('btn-test-integration').style.display = 'none';
+    return;
+  }
+  document.getElementById('btn-test-integration').style.display = '';
+}
+
+async function saveIntegrationSettings() {
+  let update = {};
+
+  if (activeIntegrationConfig === 'smtp') {
+    update = {
+      SMTP_ENABLED: document.getElementById('cfg-smtp-enabled').value === 'true',
+      SMTP_HOST: document.getElementById('cfg-smtp-host').value,
+      SMTP_PORT: document.getElementById('cfg-smtp-port').value,
+      SMTP_USER: document.getElementById('cfg-smtp-user').value,
+      SMTP_PASSWORD: document.getElementById('cfg-smtp-pass').value,
+      SMTP_FROM_NAME: document.getElementById('cfg-smtp-from-name').value,
+      SMTP_FROM_EMAIL: document.getElementById('cfg-smtp-from-email').value,
+      ADMIN_NOTIFICATION_EMAIL: document.getElementById('cfg-smtp-admin').value,
+    };
+  } else if (activeIntegrationConfig === 'supabase') {
+    update = {
+      SUPABASE_URL: document.getElementById('cfg-supa-url').value,
+      SUPABASE_SERVICE_ROLE_KEY: document.getElementById('cfg-supa-key').value,
+      SUPABASE_LEADS_TABLE: document.getElementById('cfg-supa-table').value,
+    };
+  } else if (activeIntegrationConfig === 'telegram') {
+    update = {
+      TELEGRAM_ENABLED: document.getElementById('cfg-tg-enabled').value === 'true',
+      TELEGRAM_BOT_TOKEN: document.getElementById('cfg-tg-token').value,
+      TELEGRAM_MODE: document.getElementById('cfg-tg-mode').value,
+      TELEGRAM_WEBHOOK_URL: document.getElementById('cfg-tg-webhook').value,
+    };
+  } else if (activeIntegrationConfig === 'vk') {
+    update = {
+      VK_ENABLED: document.getElementById('cfg-vk-enabled').value === 'true',
+      VK_GROUP_TOKEN: document.getElementById('cfg-vk-token').value,
+      VK_CONFIRMATION_TOKEN: document.getElementById('cfg-vk-confirm').value,
+      VK_SECRET_KEY: document.getElementById('cfg-vk-secret').value,
+    };
+  } else if (activeIntegrationConfig === 'webchat') {
+    update = {
+      WEBCHAT_ENABLED: document.getElementById('cfg-wc-enabled').value === 'true',
+      WEBCHAT_ALLOWED_ORIGINS: document.getElementById('cfg-wc-origins').value,
+    };
+  }
+
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
+  showTestResult('integration', true, 'Настройки сохранены');
+  loadSettings();
+}
+
+async function testIntegrationConnection() {
+  const resultEl = document.getElementById('integration-test-result');
+  resultEl.style.display = 'block';
+  resultEl.textContent = 'Проверяем...';
+  resultEl.style.color = 'var(--muted)';
+
+  let res;
+  if (activeIntegrationConfig === 'smtp') {
+    res = await apiFetch('/smtp/test', { method: 'POST' });
+  } else if (activeIntegrationConfig === 'supabase') {
+    res = await apiFetch('/supabase/test', { method: 'POST' });
+  } else {
+    resultEl.textContent = 'Тест для этой интеграции не поддерживается';
+    return;
+  }
+
+  if (res.success) {
+    resultEl.style.color = 'var(--success)';
+    resultEl.textContent = '✓ Подключение успешно';
+  } else {
+    resultEl.style.color = 'var(--danger)';
+    resultEl.textContent = '✗ Ошибка: ' + (res.error || 'неизвестная ошибка');
+  }
+}
+
+function showTestResult(scope, ok, msg) {
+  const id = scope === 'integration' ? 'integration-test-result' : 'provider-test-result';
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = 'block';
+  el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+  el.textContent = (ok ? '✓ ' : '✗ ') + msg;
+}
+
+// Backward compat (old openSmtpConfig calls)
+function openSmtpConfig() { openIntegrationConfig('smtp'); }
 
 let activeProviderConfig = '';
 
@@ -265,88 +497,30 @@ async function saveProviderSettings() {
   }
   
   await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
-  alert('Настройки сохранены');
+  showTestResult('provider', true, 'Настройки сохранены');
   loadSettings();
 }
 
 async function testProviderConnection() {
-  const res = await apiFetch('/ai/test', { 
-    method: 'POST', 
-    body: JSON.stringify({ provider: activeProviderConfig }) 
+  const resultEl = document.getElementById('provider-test-result');
+  if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Проверяем...'; resultEl.style.color = 'var(--muted)'; }
+  const res = await apiFetch('/ai/test', {
+    method: 'POST',
+    body: JSON.stringify({ provider: activeProviderConfig })
   });
-  if (res.success) {
-    alert('Связь установлена! Провайдер ответил успешно.');
-  } else {
-    alert('Ошибка связи: ' + res.error);
-  }
+  showTestResult('provider', res.success, res.success ? 'Подключение успешно' : (res.error || 'ошибка'));
 }
 
-function openSmtpConfig() {
-    const panel = document.getElementById('integration-config-panel');
-    panel.classList.remove('hidden');
-    document.getElementById('integration-config-title').textContent = 'Настройка SMTP';
-    document.getElementById('integration-config-form').innerHTML = `
-      <div class="form-group">
-        <label class="form-label">Включить уведомления</label>
-        <select class="form-input" id="cfg-smtp-enabled">
-          <option value="true" ${settings.SMTP_ENABLED === true || settings.SMTP_ENABLED === 'true' ? 'selected' : ''}>Да</option>
-          <option value="false" ${settings.SMTP_ENABLED === false || settings.SMTP_ENABLED === 'false' ? 'selected' : ''}>Нет</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">SMTP Host</label>
-        <input type="text" class="form-input" id="cfg-smtp-host" value="${settings.SMTP_HOST || ''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Port</label>
-        <input type="number" class="form-input" id="cfg-smtp-port" value="${settings.SMTP_PORT || 465}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">User (Login)</label>
-        <input type="text" class="form-input" id="cfg-smtp-user" value="${settings.SMTP_USER || ''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" class="form-input" id="cfg-smtp-pass" placeholder="${settings.SMTP_PASSWORD === 'configured' ? '********' : ''}">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email админа (получатель)</label>
-        <input type="email" class="form-input" id="cfg-smtp-admin" value="${settings.ADMIN_NOTIFICATION_EMAIL || ''}">
-      </div>
-    `;
-}
-
-async function saveIntegrationSettings() {
-    const update = {
-        SMTP_ENABLED: document.getElementById('cfg-smtp-enabled').value === 'true',
-        SMTP_HOST: document.getElementById('cfg-smtp-host').value,
-        SMTP_PORT: document.getElementById('cfg-smtp-port').value,
-        SMTP_USER: document.getElementById('cfg-smtp-user').value,
-        SMTP_PASSWORD: document.getElementById('cfg-smtp-pass').value,
-        ADMIN_NOTIFICATION_EMAIL: document.getElementById('cfg-smtp-admin').value,
-    };
-    await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
-    alert('Интеграция сохранена');
-    loadSettings();
-}
-
-async function testIntegrationConnection() {
-    const res = await apiFetch('/smtp/test', { method: 'POST' });
-    if (res.success) {
-        alert('SMTP тест пройден! Проверьте почту.');
-    } else {
-        alert('Ошибка SMTP: ' + res.error);
-    }
-}
 
 async function saveGeneralSettings() {
-    const update = {
-        AI_PROVIDER: document.getElementById('setting-ai-provider').value,
-        PUBLIC_BASE_URL: document.getElementById('setting-public-url').value
-    };
-    await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
-    alert('Общие настройки сохранены');
-    loadSettings();
+  const update = {
+    AI_PROVIDER: document.getElementById('setting-ai-provider').value,
+    PUBLIC_BASE_URL: document.getElementById('setting-public-url').value
+  };
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
+  const btn = document.querySelector('#view-settings .btn');
+  if (btn) { const orig = btn.textContent; btn.textContent = '✓ Сохранено'; setTimeout(() => btn.textContent = orig, 2000); }
+  loadSettings();
 }
 
 // --- Conversations ---

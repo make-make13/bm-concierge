@@ -14,6 +14,19 @@ export interface ConnectionTestResult {
 }
 
 export interface AIProvider {
-  generateReply(input: string, contextChunks: string[], systemPrompt: string): Promise<AIReply>;
+  /**
+   * Генерация ответа ИИ
+   * @param input Сообщение гостя
+   * @param contextChunks Фрагменты из базы знаний (RAG)
+   * @param systemPrompt Инструкция для ИИ
+   * @param history История диалога
+   */
+  generateReply(
+    input: string, 
+    contextChunks: string[], 
+    systemPrompt: string,
+    history?: { role: string, content: string }[]
+  ): Promise<AIReply>;
+  
   testConnection(): Promise<ConnectionTestResult>;
 }

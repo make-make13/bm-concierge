@@ -2,7 +2,12 @@ import { AIProvider, AIReply, ConnectionTestResult } from './aiProvider';
 import { HandoffManager } from '../core/handoff';
 
 export class MockProvider implements AIProvider {
-  public async generateReply(input: string, contextChunks: string[], systemPrompt: string): Promise<AIReply> {
+  public async generateReply(
+    input: string, 
+    contextChunks: string[], 
+    systemPrompt: string,
+    history: { role: string, content: string }[] = []
+  ): Promise<AIReply> {
     let reply = '';
     
     // Simulate current mock logic

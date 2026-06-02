@@ -9,12 +9,17 @@ export class DeepSeekProvider implements AIProvider {
 
   constructor() {}
 
-  public async generateReply(input: string, contextChunks: string[], systemPrompt: string): Promise<AIReply> {
+  public async generateReply(
+    input: string, 
+    contextChunks: string[], 
+    systemPrompt: string,
+    history: { role: string, content: string }[] = []
+  ): Promise<AIReply> {
     if (!this.apiKey) {
       throw new Error('DeepSeek API key is missing');
     }
 
-    const messages = [
+    const messages: any[] = [
       { role: 'system', content: systemPrompt },
     ];
 
@@ -23,6 +28,10 @@ export class DeepSeekProvider implements AIProvider {
         role: 'system',
         content: `Контекст из базы знаний:\n\n${contextChunks.join('\n\n')}`
       });
+    }
+
+    if (history && history.length > 0) {
+      messages.push(...history);
     }
 
     messages.push({ role: 'user', content: input });

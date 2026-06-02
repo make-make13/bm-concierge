@@ -30,6 +30,19 @@ export class SupabaseWriter {
     };
   }
 
+  public async testConnection(): Promise<{ success: boolean; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Supabase not configured (missing URL or key)' };
+    }
+    try {
+      const { error } = await this.client.from(config.supabase.leadsTable).select('id').limit(1);
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message };
+    }
+  }
+
   public async createLead(payload: LeadPayload): Promise<string | null> {
     if (!this.client) {
       console.error('Failed to create lead: Supabase is not configured.');

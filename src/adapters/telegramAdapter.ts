@@ -73,16 +73,26 @@ export class TelegramAdapter extends BaseAdapter {
         }
       });
 
-      this.bot.launch().then(() => {
-        if (mode === 'polling') {
-          console.log('[TelegramAdapter] starting polling');
-        }
-        console.log('[TelegramAdapter] bot started');
-        this.status = 'running';
-      }).catch(err => {
-        console.log(`[TelegramAdapter] start failed: ${err.message}`);
-        this.status = 'error';
-      });
+      const launchBot = (retryCount = 0) => {
+        this.bot!.launch().then(() => {
+          if (mode === 'polling') {
+            console.log('[TelegramAdapter] starting polling');
+          }
+          console.log('[TelegramAdapter] bot started');
+          this.status = 'running';
+        }).catch(err => {
+          console.log(`[TelegramAdapter] start failed: ${err.message}`);
+          this.status = 'error';
+          
+          if (err.message.includes('409') && retryCount < 10) {
+            const delay = Math.min(Math.pow(2, retryCount) * 1000, 30000);
+            console.log(`[TelegramAdapter] Retrying in ${delay}ms... (Attempt ${retryCount + 1})`);
+            setTimeout(() => launchBot(retryCount + 1), delay);
+          }
+        });
+      };
+      
+      launchBot();
 
       // Грациозная остановка
       process.once('SIGINT', () => this.stop());

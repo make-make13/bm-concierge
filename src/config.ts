@@ -175,6 +175,14 @@ function refreshConfig() {
 
   config.telegram.enabled = resolveConfig('TELEGRAM_ENABLED') === 'true';
   config.telegram.botToken = resolveConfig('TELEGRAM_BOT_TOKEN');
+  config.telegram.mode = resolveConfig('TELEGRAM_MODE', [], 'polling');
+  config.telegram.webhookUrl = resolveConfig('TELEGRAM_WEBHOOK_URL');
+
+  config.vk.enabled = resolveConfig('VK_ENABLED') === 'true';
+  config.vk.groupToken = resolveConfig('VK_GROUP_TOKEN', ['VK_GROUP_ACCESS_TOKEN']);
+  config.vk.confirmationToken = resolveConfig('VK_CONFIRMATION_TOKEN', ['VK_CONFIRMATION_CODE']);
+  config.vk.secretKey = resolveConfig('VK_SECRET_KEY', ['VK_SECRET_TOKEN']);
+
   config.webchat.enabled = resolveConfig('WEBCHAT_ENABLED') === 'true';
   config.webchat.allowedOrigins = resolveConfig('WEBCHAT_ALLOWED_ORIGINS', [], 'https://ai.4-am.ru,http://localhost:3010');
 }

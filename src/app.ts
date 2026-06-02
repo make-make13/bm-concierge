@@ -43,20 +43,33 @@ if (config.devUiEnabled) {
 if (config.consoleEnabled) {
   console.log('CONSOLE is enabled. Routes available at /console');
   app.use('/api/console', consoleRouter);
-  
-  // Strict check for trailing slash redirect
-  app.get('/console*', (req, res, next) => {
-    if (req.path === '/' && req.originalUrl.includes('/console/')) {
-        return res.redirect('/console');
-    }
-    next();
+
+  // Login page — always public
+  app.get('/console/login', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'src/console-ui/login.html'));
   });
 
-  app.get('/console', (req, res) => {
+  // Auth guard for console UI
+  const consoleAuthGuard = (req: any, res: any, next: any) => {
+    if (!config.consoleToken) return next();
+    const cookies = parseCookiesStr(req.headers.cookie || '');
+    if (cookies['console_session'] === config.consoleToken) return next();
+    const next_ = encodeURIComponent(req.originalUrl);
+    res.redirect(`/console/login?next=${next_}`);
+  };
+
+  app.get('/console', consoleAuthGuard, (req, res) => {
     res.sendFile(path.join(process.cwd(), 'src/console-ui/index.html'));
   });
-  
-  app.use('/console', express.static(path.join(process.cwd(), 'src/console-ui'), { redirect: false }));
+
+  app.use('/console', consoleAuthGuard, express.static(path.join(process.cwd(), 'src/console-ui'), { redirect: false }));
+}
+
+function parseCookiesStr(cookieHeader: string): Record<string, string> {
+  return Object.fromEntries(
+    cookieHeader.split(';').map(c => c.trim().split('=').map(decodeURIComponent))
+      .filter(p => p.length === 2).map(([k, v]) => [k.trim(), v.trim()])
+  );
 }
 
 if (config.webchat.enabled) {
