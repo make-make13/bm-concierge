@@ -66,6 +66,9 @@ export const config = {
   devUiEnabled: process.env.DEV_UI_ENABLED === 'true',
   consoleEnabled: process.env.CONSOLE_ENABLED === 'true',
   consoleToken: process.env.CONSOLE_ACCESS_TOKEN || '',
+  // Bearer-токен Operator API. Хранится только в env (не в settings.json UI),
+  // чтобы секрет не попадал в Console. Пустой = Operator API отключён (не открыт без защиты).
+  operatorApiToken: process.env.OPERATOR_API_TOKEN || '',
   dbPath: process.env.DB_PATH || './data/console.db',
   
   supabase: {

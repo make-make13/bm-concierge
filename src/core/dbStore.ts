@@ -61,6 +61,24 @@ export function normalizeConversationStatus(status?: string | null): Conversatio
     : 'ai';
 }
 
+/**
+ * Строит WHERE-условие для фильтра списка диалогов Operator API.
+ * Возвращает только фиксированные литералы (без пользовательского ввода) — SQL-инъекция исключена.
+ */
+function operatorConversationWhere(filter: string): string {
+  switch (filter) {
+    case 'needs_attention':
+      return 'WHERE needs_attention = 1';
+    case 'operator':
+      return "WHERE status = 'operator' OR manual_mode = 1";
+    case 'open':
+    case 'ai':
+      return "WHERE status IN ('ai', 'open') OR status IS NULL";
+    default:
+      return '';
+  }
+}
+
 export const dbStore = {
   // --- Conversations ---
   getConversations() {
@@ -112,6 +130,39 @@ export const dbStore = {
   /** Сообщения диалога в хронологическом порядке (без вложенной выборки lead/conversation). */
   getConversationMessages(id: string) {
     return getDb().prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC').all(id);
+  },
+
+  // --- Conversations: read-only выборки для Operator API (Pass 2) ---
+
+  /** Счётчики по состояниям диалогов (для status endpoint). */
+  getConversationCounts(): { open: number; needsAttention: number; operator: number } {
+    const db = getDb();
+    const open = (db.prepare("SELECT count(*) AS c FROM conversations WHERE status IN ('ai','open') OR status IS NULL").get() as any).c;
+    const needsAttention = (db.prepare('SELECT count(*) AS c FROM conversations WHERE needs_attention = 1').get() as any).c;
+    const operator = (db.prepare("SELECT count(*) AS c FROM conversations WHERE status = 'operator' OR manual_mode = 1").get() as any).c;
+    return { open, needsAttention, operator };
+  },
+
+  /** Список диалогов для Operator API: строки conversations + last_message_preview. Только чтение. */
+  operatorListConversations(opts: { filter?: string; limit?: number; offset?: number } = {}) {
+    const { filter = 'all', limit = 50, offset = 0 } = opts;
+    const where = operatorConversationWhere(filter);
+    return getDb()
+      .prepare(
+        `SELECT *,
+           (SELECT m.text FROM messages m WHERE m.conversation_id = conversations.id ORDER BY m.created_at DESC LIMIT 1) AS last_message_preview
+         FROM conversations
+         ${where}
+         ORDER BY COALESCE(last_message_at, updated_at) DESC
+         LIMIT ? OFFSET ?`
+      )
+      .all(limit, offset);
+  },
+
+  /** Кол-во диалогов под фильтром (total для пагинации). Только чтение. */
+  operatorCountConversations(filter: string = 'all'): number {
+    const where = operatorConversationWhere(filter);
+    return (getDb().prepare(`SELECT count(*) AS c FROM conversations ${where}`).get() as any).c;
   },
 
   /** Включить/выключить ручной режим оператора. При включении выставляет status='operator' и снимает needs_attention. */

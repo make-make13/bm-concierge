@@ -7,6 +7,7 @@ import { testChatHandler } from './api/testChat';
 import { indexer } from './rag/indexer';
 import { devRouter } from './api/dev';
 import { consoleRouter } from './api/consoleApi';
+import { operatorRouter } from './api/operatorApi';
 import { initDb } from './core/db';
 import { dbStore } from './core/dbStore';
 import { adapterManager } from './adapters/adapterManager';
@@ -71,6 +72,11 @@ function parseCookiesStr(cookieHeader: string): Record<string, string> {
       .filter(p => p.length === 2).map(([k, v]) => [k.trim(), v.trim()])
   );
 }
+
+// Operator API (read-only, Bearer-auth). Независим от Console cookie-auth.
+// Активен только если задан OPERATOR_API_TOKEN (иначе сам отдаёт 503 not_configured).
+app.use('/api/operator', operatorRouter);
+console.log('Operator API mounted at /api/operator (Bearer-auth, read-only)');
 
 if (config.webchat.enabled) {
   console.log('[WebchatAdapter] enabled, serving public folder');
