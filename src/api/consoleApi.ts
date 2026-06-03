@@ -323,15 +323,16 @@ consoleRouter.post('/conversations/:id/messages', async (req: Request, res: Resp
     const { message } = req.body;
     const convId = req.params.id;
     const conv = dbStore.getConversation(convId) as any;
-    
-    if (!conv) return res.status(404).json({ error: 'Not found' });
-    
+
+    // Диалог может не существовать (например, Test Chat с фиксированным id "test-session").
+    // processMessage сам создаёт диалог при отсутствии — поэтому не возвращаем 404,
+    // а передаём значения по умолчанию.
     const result = await conversationService.processMessage({
-      channel: conv.channel || 'console',
+      channel: conv?.channel || 'console',
       source: 'console_test',
       externalConversationId: convId,
-      guestName: conv.guest_name,
-      guestContact: conv.guest_contact,
+      guestName: conv?.guest_name,
+      guestContact: conv?.guest_contact,
       message
     });
 

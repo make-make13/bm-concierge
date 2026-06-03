@@ -982,8 +982,11 @@ async function sendTestMessage() {
     method: 'POST',
     body: JSON.stringify({ message })
   });
-  
-  container.innerHTML += '<div class="msg msg-assistant"><div class="msg-text">' + res.reply + '</div></div>';
+
+  const replyText = (res && typeof res.reply === 'string' && res.reply)
+    ? res.reply
+    : (res && res.error ? ('Ошибка: ' + res.error) : 'Нет ответа от сервера');
+  container.innerHTML += '<div class="msg msg-assistant"><div class="msg-text">' + replyText + '</div></div>';
   container.scrollTop = container.scrollHeight;
 }
 
