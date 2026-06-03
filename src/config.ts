@@ -110,6 +110,7 @@ export const config = {
     botToken: resolveConfig('TELEGRAM_BOT_TOKEN'),
     botUrl: resolveConfig('TELEGRAM_BOT_URL'),
     adminId: resolveConfig('TELEGRAM_ADMIN_ID'),
+    adminIds: resolveConfig('TELEGRAM_ADMIN_IDS', ['TELEGRAM_ADMIN_ID']),
     mode: resolveConfig('TELEGRAM_MODE', [], 'polling'),
     webhookUrl: resolveConfig('TELEGRAM_WEBHOOK_URL'),
     webhookSecret: resolveConfig('TELEGRAM_WEBHOOK_SECRET'),
@@ -178,6 +179,8 @@ function refreshConfig() {
 
   config.telegram.enabled = resolveConfig('TELEGRAM_ENABLED') === 'true';
   config.telegram.botToken = resolveConfig('TELEGRAM_BOT_TOKEN');
+  config.telegram.adminId = resolveConfig('TELEGRAM_ADMIN_ID');
+  config.telegram.adminIds = resolveConfig('TELEGRAM_ADMIN_IDS', ['TELEGRAM_ADMIN_ID']);
   config.telegram.mode = resolveConfig('TELEGRAM_MODE', [], 'polling');
   config.telegram.webhookUrl = resolveConfig('TELEGRAM_WEBHOOK_URL');
 

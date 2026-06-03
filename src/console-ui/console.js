@@ -273,6 +273,11 @@ function openIntegrationConfig(type) {
         <div class="form-desc">${settings.TELEGRAM_BOT_TOKEN === 'configured' ? 'Токен сохранён. Оставьте пустым, чтобы не менять.' : ''}</div>
       </div>
       <div class="form-group">
+        <label class="form-label">Telegram ID администраторов</label>
+        <textarea class="form-input" id="cfg-tg-admin-ids" rows="3" placeholder="123456789, 987654321">${settings.TELEGRAM_ADMIN_IDS || settings.TELEGRAM_ADMIN_ID || ''}</textarea>
+        <div class="form-desc">Можно указать несколько chat_id через запятую, пробел или с новой строки. Этим администраторам будут приходить уведомления о заявках и диалогах, требующих внимания.</div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Режим подключения</label>
         <select class="form-input" id="cfg-tg-mode">
           <option value="polling" ${settings.TELEGRAM_MODE === 'polling' ? 'selected' : ''}>Polling</option>
@@ -362,6 +367,7 @@ async function saveIntegrationSettings() {
     update = {
       TELEGRAM_ENABLED: document.getElementById('cfg-tg-enabled').value === 'true',
       TELEGRAM_BOT_TOKEN: document.getElementById('cfg-tg-token').value,
+      TELEGRAM_ADMIN_IDS: document.getElementById('cfg-tg-admin-ids').value,
       TELEGRAM_MODE: document.getElementById('cfg-tg-mode').value,
       TELEGRAM_WEBHOOK_URL: document.getElementById('cfg-tg-webhook').value,
     };
@@ -395,6 +401,8 @@ async function testIntegrationConnection() {
     res = await apiFetch('/smtp/test', { method: 'POST' });
   } else if (activeIntegrationConfig === 'supabase') {
     res = await apiFetch('/supabase/test', { method: 'POST' });
+  } else if (activeIntegrationConfig === 'telegram') {
+    res = await apiFetch('/telegram/admin-test', { method: 'POST' });
   } else {
     resultEl.textContent = 'Тест для этой интеграции не поддерживается';
     return;
@@ -402,7 +410,9 @@ async function testIntegrationConnection() {
 
   if (res.success) {
     resultEl.style.color = 'var(--success)';
-    resultEl.textContent = '✓ Подключение успешно';
+    resultEl.textContent = activeIntegrationConfig === 'telegram'
+      ? `✓ Тест отправлен: ${res.sent || 0}`
+      : '✓ Подключение успешно';
   } else {
     resultEl.style.color = 'var(--danger)';
     resultEl.textContent = '✗ Ошибка: ' + (res.error || 'неизвестная ошибка');
@@ -741,23 +751,219 @@ async function sendLeadToSupa(id) {
 }
 
 // --- KB ---
+let knowledgeEntries = [];
+let knowledgeSourceFilter = '';
+
 async function loadKBStatus() {
   const status = await apiFetch('/kb/status');
   const info = document.getElementById('kb-status-info');
+  const files = status.files || [];
   info.innerHTML = `
     <div>Всего чанков: <b>${status.totalChunks}</b></div>
-    <div>Источников: <b>${status.sources ? status.sources.length : 0}</b></div>
-    <div>Последнее обновление: <b>${new Date(status.lastUpdated).toLocaleString()}</b></div>
+    <div>Файлов: <b>${files.length}</b></div>
+    <div class="kb-file-pills">${files.map(f => `<span class="sub-chip">${escapeHtml(f.name)}: ${f.chunks}</span>`).join('')}</div>
   `;
+  await loadEditableKB();
+  await loadKnowledgeEntries();
 }
 
 async function reloadKB() {
   const res = await apiFetch('/kb/reload', { method: 'POST' });
   if (res.success) {
-    alert('База знаний успешно обновлена');
+    setKbMessage('kb-save-result', 'База знаний обновлена', true);
     loadKBStatus();
   }
 }
+
+function setKbMessage(id, text, ok) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.style.color = ok ? 'var(--success)' : 'var(--danger)';
+}
+
+async function loadEditableKB() {
+  const data = await apiFetch('/kb/editable');
+  if (data && typeof data.content === 'string') {
+    const editor = document.getElementById('kb-edit-content');
+    if (editor) editor.value = data.content;
+  }
+}
+
+async function saveEditableKB() {
+  const content = document.getElementById('kb-edit-content').value;
+  const res = await apiFetch('/kb/editable', {
+    method: 'POST',
+    body: JSON.stringify({ content })
+  });
+  if (res.success) {
+    setKbMessage('kb-save-result', 'Сохранено, база перезагружена', true);
+    loadKBStatus();
+  } else {
+    setKbMessage('kb-save-result', 'Ошибка: ' + (res.error || 'не удалось сохранить'), false);
+  }
+}
+
+async function addKnowledgeEntry() {
+  return saveKnowledgeEntry();
+}
+
+async function loadKnowledgeEntries() {
+  const search = document.getElementById('kb-search')?.value.trim() || '';
+  const category = document.getElementById('kb-category-filter')?.value || '';
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (category) params.set('category', category);
+  const data = await apiFetch('/kb/entries?' + params.toString());
+  knowledgeEntries = Array.isArray(data.entries) ? data.entries : [];
+  renderKnowledgeCategoryFilter(data.categories || [], category);
+  renderKnowledgeEntries();
+}
+
+function setKnowledgeSource(source) {
+  knowledgeSourceFilter = source;
+  document.querySelectorAll('.segment').forEach(btn => btn.classList.remove('active'));
+  const activeId = source === 'manual' ? 'kb-source-manual' : source === 'scraped' ? 'kb-source-scraped' : 'kb-source-all';
+  const active = document.getElementById(activeId);
+  if (active) active.classList.add('active');
+  renderKnowledgeEntries();
+}
+window.setKnowledgeSource = setKnowledgeSource;
+
+function renderKnowledgeCategoryFilter(categories, selected) {
+  const select = document.getElementById('kb-category-filter');
+  if (!select) return;
+  const options = ['<option value="">Все категории</option>']
+    .concat(categories.map(cat => `<option value="${escapeHtml(cat.id)}" ${cat.id === selected ? 'selected' : ''}>${escapeHtml(cat.label)} (${cat.count})</option>`));
+  select.innerHTML = options.join('');
+}
+
+function renderKnowledgeEntries() {
+  const body = document.getElementById('kb-entries-body');
+  if (!body) return;
+  const visibleEntries = knowledgeSourceFilter
+    ? knowledgeEntries.filter(entry => entry.source === knowledgeSourceFilter)
+    : knowledgeEntries;
+  if (!visibleEntries.length) {
+    body.innerHTML = '<tr><td colspan="5" class="empty">Записи не найдены. Добавьте первую запись или измените фильтры.</td></tr>';
+    return;
+  }
+  body.innerHTML = visibleEntries.map(entry => `
+    <tr>
+      <td><span class="status-badge">${escapeHtml(entry.category)}</span></td>
+      <td><b>${escapeHtml(entry.title)}</b><div class="form-desc">${escapeHtml(entry.id)}</div></td>
+      <td><div class="kb-entry-preview">${escapeHtml(entry.content)}</div></td>
+      <td>${Number(entry.priority || 5)}</td>
+      <td class="row-actions">
+        <button class="btn btn-secondary btn-small" onclick="editKnowledgeEntry('${escapeHtml(entry.id)}')">Править</button>
+        <button class="btn btn-secondary btn-small danger" onclick="deleteKnowledgeEntry('${escapeHtml(entry.id)}')">Удалить</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function startKnowledgeAdd() {
+  document.getElementById('kb-entry-form').classList.remove('hidden');
+  document.getElementById('kb-form-title').textContent = 'Добавить новую запись';
+  document.getElementById('kb-entry-id').value = '';
+  document.getElementById('kb-new-category').value = 'custom';
+  document.getElementById('kb-new-priority').value = '5';
+  document.getElementById('kb-new-title').value = '';
+  document.getElementById('kb-new-text').value = '';
+  setKbMessage('kb-add-result', '', true);
+  document.getElementById('kb-new-title').focus();
+}
+window.startKnowledgeAdd = startKnowledgeAdd;
+
+function editKnowledgeEntry(id) {
+  const entry = knowledgeEntries.find(item => item.id === id);
+  if (!entry) return;
+  document.getElementById('kb-entry-form').classList.remove('hidden');
+  document.getElementById('kb-form-title').textContent = 'Редактировать запись';
+  document.getElementById('kb-entry-id').value = entry.id;
+  document.getElementById('kb-new-category').value = entry.category || 'custom';
+  document.getElementById('kb-new-priority').value = entry.priority || 5;
+  document.getElementById('kb-new-title').value = entry.title || '';
+  document.getElementById('kb-new-text').value = entry.content || '';
+  setKbMessage('kb-add-result', '', true);
+  document.getElementById('kb-entry-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+window.editKnowledgeEntry = editKnowledgeEntry;
+
+function cancelKnowledgeEdit() {
+  document.getElementById('kb-entry-form').classList.add('hidden');
+  setKbMessage('kb-add-result', '', true);
+}
+window.cancelKnowledgeEdit = cancelKnowledgeEdit;
+
+async function saveKnowledgeEntry() {
+  const id = document.getElementById('kb-entry-id').value.trim();
+  const category = document.getElementById('kb-new-category').value.trim();
+  const title = document.getElementById('kb-new-title').value.trim();
+  const text = document.getElementById('kb-new-text').value.trim();
+  const priority = Number(document.getElementById('kb-new-priority').value || 5);
+  if (!title || !text) {
+    setKbMessage('kb-add-result', 'Заполните заголовок и текст', false);
+    return;
+  }
+  const path = id ? '/kb/entries/' + encodeURIComponent(id) : '/kb/chunks';
+  const method = id ? 'PUT' : 'POST';
+  const res = await apiFetch(path, {
+    method,
+    body: JSON.stringify({ category, title, text, content: text, priority })
+  });
+  if (res.success) {
+    document.getElementById('kb-new-title').value = '';
+    document.getElementById('kb-new-text').value = '';
+    document.getElementById('kb-entry-id').value = '';
+    document.getElementById('kb-entry-form').classList.add('hidden');
+    setKbMessage('kb-add-result', id ? 'Запись обновлена, база перезагружена' : 'Запись добавлена, база перезагружена', true);
+    await loadKBStatus();
+  } else {
+    setKbMessage('kb-add-result', 'Ошибка: ' + (res.error || 'не удалось сохранить'), false);
+  }
+}
+window.saveKnowledgeEntry = saveKnowledgeEntry;
+
+async function deleteKnowledgeEntry(id) {
+  if (!confirm('Удалить эту запись из базы знаний?')) return;
+  const res = await apiFetch('/kb/entries/' + encodeURIComponent(id), { method: 'DELETE' });
+  if (res.success) {
+    await loadKBStatus();
+  } else {
+    alert('Ошибка: ' + (res.error || 'не удалось удалить'));
+  }
+}
+window.deleteKnowledgeEntry = deleteKnowledgeEntry;
+
+async function testKnowledgeSearch() {
+  const query = document.getElementById('kb-test-query').value.trim();
+  const result = document.getElementById('kb-test-result');
+  if (!query) return;
+  result.classList.remove('hidden');
+  result.innerHTML = '<div class="form-desc">Поиск в базе знаний...</div>';
+  const data = await apiFetch('/kb/search', {
+    method: 'POST',
+    body: JSON.stringify({ query })
+  });
+  const matches = data.matches || [];
+  if (!matches.length) {
+    result.innerHTML = '<div class="empty">Совпадения не найдены. Добавьте запись или уточните формулировку.</div>';
+    return;
+  }
+  result.innerHTML = `
+    <div class="config-panel-title">Найденные записи</div>
+    ${matches.map(match => `
+      <div class="kb-match">
+        <div><b>${escapeHtml(match.title)}</b> <span class="status-badge">${escapeHtml(match.category)}</span></div>
+        <div class="form-desc">${escapeHtml(match.sourceFile)} · score ${match.score}</div>
+      </div>
+    `).join('')}
+  `;
+}
+window.testKnowledgeSearch = testKnowledgeSearch;
+window.loadKnowledgeEntries = loadKnowledgeEntries;
+window.addKnowledgeEntry = addKnowledgeEntry;
 
 // --- Test Chat ---
 async function sendTestMessage() {

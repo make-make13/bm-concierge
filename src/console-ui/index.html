@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Батлер - БМ Консьерж</title>
-  <link rel="stylesheet" href="console.css?v=8">
+  <link rel="stylesheet" href="/console/console.css?v=13">
 </head>
 <body>
   
@@ -382,14 +382,109 @@
       <!-- KB VIEW -->
       <div id="view-kb" class="view hidden">
         <div class="page-header">
-          <div class="page-title">База знаний</div>
-          <button class="btn" onclick="reloadKB()">Обновить из файлов</button>
+          <div>
+            <div class="page-title">База знаний</div>
+            <div class="page-subtitle">Записи, из которых консьерж берет ответы для гостей</div>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="reloadKB()">Переиндексировать</button>
+            <button class="btn" onclick="startKnowledgeAdd()">Добавить запись</button>
+          </div>
         </div>
+
+        <div class="kb-test-card">
+          <div class="kb-test-input">
+            <span class="kb-test-icon">?</span>
+            <input id="kb-test-query" class="form-input" placeholder="Задайте вопрос для проверки базы знаний..." onkeydown="if(event.key==='Enter') testKnowledgeSearch()">
+          </div>
+          <button class="btn" onclick="testKnowledgeSearch()">Спросить</button>
+        </div>
+        <div id="kb-test-result" class="kb-test-result hidden"></div>
+
         <div class="status-box" id="kb-status-info" style="margin-bottom:20px;"></div>
-        <div class="section-title">Содержимое</div>
-        <div id="kb-chunks-list" class="kb-chunks">
-          <!-- JS rendered -->
+
+        <div class="kb-toolbar">
+          <div class="segmented">
+            <button class="segment active" id="kb-source-all" onclick="setKnowledgeSource('')">Все</button>
+            <button class="segment" id="kb-source-manual" onclick="setKnowledgeSource('manual')">Вручную</button>
+            <button class="segment" id="kb-source-scraped" onclick="setKnowledgeSource('scraped')">Со сканирования</button>
+          </div>
+          <div class="kb-search">
+            <input class="form-input" id="kb-search" placeholder="Поиск записей..." onkeydown="if(event.key==='Enter') loadKnowledgeEntries()">
+          </div>
+          <select class="form-input" id="kb-category-filter" onchange="loadKnowledgeEntries()">
+            <option value="">Все категории</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadKnowledgeEntries()">Найти</button>
         </div>
+
+        <div id="kb-entry-form" class="config-panel kb-entry-form hidden">
+          <div class="config-panel-header">
+            <div>
+              <div class="config-panel-title" id="kb-form-title">Добавить новую запись</div>
+              <div class="form-desc">Запись сразу сохраняется в базу знаний и доступна для поиска консьержем.</div>
+            </div>
+            <button class="btn btn-secondary" onclick="cancelKnowledgeEdit()">Отмена</button>
+          </div>
+          <input type="hidden" id="kb-entry-id">
+          <div class="kb-form-grid">
+            <div class="form-group">
+              <label class="form-label">Категория</label>
+              <input class="form-input" id="kb-new-category" value="custom" placeholder="faq, policy, amenity, dining...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Приоритет</label>
+              <input class="form-input" id="kb-new-priority" type="number" min="1" max="10" value="5">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Заголовок</label>
+            <input class="form-input" id="kb-new-title" placeholder="Например: Пароль Wi-Fi">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Содержание</label>
+            <textarea class="form-input kb-textarea" id="kb-new-text" placeholder="Точная информация, которую консьерж должен использовать в ответах"></textarea>
+          </div>
+          <div class="config-panel-actions">
+            <button class="btn" onclick="saveKnowledgeEntry()">Сохранить запись</button>
+            <span id="kb-add-result" class="form-desc"></span>
+          </div>
+        </div>
+
+        <div class="table-container kb-table-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>Категория</th>
+                <th>Заголовок</th>
+                <th>Содержание</th>
+                <th>Приоритет</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="kb-entries-body">
+              <!-- JS rendered -->
+            </tbody>
+          </table>
+        </div>
+
+        <details class="kb-advanced">
+          <summary>Расширенный markdown-редактор</summary>
+          <div class="config-panel kb-editor-panel">
+            <div class="config-panel-header">
+              <div>
+                <div class="config-panel-title">console_kb.md</div>
+                <div class="form-desc">Низкоуровневое редактирование управляемого файла базы знаний.</div>
+              </div>
+              <button class="btn btn-secondary" onclick="loadEditableKB()">Обновить</button>
+            </div>
+            <textarea class="form-input kb-markdown-editor" id="kb-edit-content" spellcheck="false"></textarea>
+            <div class="config-panel-actions">
+              <button class="btn" onclick="saveEditableKB()">Сохранить и перезагрузить</button>
+              <span id="kb-save-result" class="form-desc"></span>
+            </div>
+          </div>
+        </details>
       </div>
 
       <!-- TEST CHAT VIEW -->
@@ -444,6 +539,6 @@
     </div>
   </div>
 
-  <script src="console.js?v=8"></script>
+  <script src="/console/console.js?v=13"></script>
 </body>
 </html>

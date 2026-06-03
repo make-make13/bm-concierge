@@ -4,6 +4,7 @@ import { conciergeEngine } from './conciergeEngine';
 import { LeadExtractor } from './leadExtractor';
 import { supabaseWriter } from '../integrations/supabaseLeads';
 import { smtpService } from '../integrations/smtpService';
+import { telegramAdminNotifier } from '../integrations/telegramAdminNotifier';
 import { config } from '../config';
 
 export type IncomingChannelMessage = {
@@ -108,6 +109,14 @@ export class ConversationService {
               `Диалог ${externalConversationId} требует администратора: ${escalation.reason}`,
               { convId: externalConversationId, reason: escalation.reason, channel }
             );
+            telegramAdminNotifier.notifyEscalation({
+              conversationId: externalConversationId,
+              channel,
+              guestName,
+              guestContact,
+              message,
+              reason: escalation.reason
+            }).catch((err) => console.error('Failed to notify Telegram admins:', err));
           }
         }
       }
@@ -185,6 +194,16 @@ export class ConversationService {
           supabaseStatus
         }).catch(err => console.error('Failed to notify admin by email:', err));
       }
+      telegramAdminNotifier.notifyLead({
+        id: localLeadId as string,
+        source,
+        channel,
+        guestName,
+        guestContact,
+        message,
+        summary,
+        supabaseStatus
+      }).catch(err => console.error('Failed to notify Telegram admins:', err));
     }
 
     return {

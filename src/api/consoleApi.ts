@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { dbStore } from '../core/dbStore';
 import { indexer } from '../rag/indexer';
 import { config, saveSettings, isValidValue } from '../config';
@@ -6,8 +8,115 @@ import { conversationService } from '../core/conversationService';
 import { supabaseWriter } from '../integrations/supabaseLeads';
 import { AIProviderFactory } from '../ai/aiProviderFactory';
 import { smtpService } from '../integrations/smtpService';
+import { telegramAdminNotifier } from '../integrations/telegramAdminNotifier';
 
 export const consoleRouter = Router();
+
+const editableKnowledgeFile = path.join(process.cwd(), 'src', 'knowledge', 'console_kb.md');
+
+function ensureEditableKnowledgeFile() {
+  const dir = path.dirname(editableKnowledgeFile);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (!fs.existsSync(editableKnowledgeFile)) {
+    fs.writeFileSync(editableKnowledgeFile, '', 'utf8');
+  }
+}
+
+function slugifyChunkTitle(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-zа-я0-9]+/gi, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 48) || 'console_note';
+}
+
+type EditableKnowledgeEntry = {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  priority: number;
+  status: 'active';
+  source: 'manual';
+  updatedAt: string;
+};
+
+function buildKnowledgeChunk(entry: Pick<EditableKnowledgeEntry, 'id' | 'category' | 'title' | 'content' | 'priority'>) {
+  return [
+    `## CHUNK: ${entry.id}`,
+    '',
+    `category: ${entry.category || 'custom'}`,
+    `title: ${entry.title}`,
+    `priority: ${Number.isFinite(entry.priority) ? entry.priority : 5}`,
+    '',
+    entry.content.trim(),
+    ''
+  ].join('\n');
+}
+
+function parseEditableKnowledge(content: string): EditableKnowledgeEntry[] {
+  return content
+    .split(/(?:^|\n)## CHUNK:/g)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const lines = part.split('\n');
+      const id = (lines.shift() || '').trim() || `entry-${Date.now()}`;
+      let category = 'custom';
+      let title = id;
+      let priority = 5;
+      let bodyStart = 0;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const lower = line.toLowerCase();
+        if (lower.startsWith('category:')) {
+          category = line.substring(9).trim() || category;
+          bodyStart = i + 1;
+          continue;
+        }
+        if (lower.startsWith('title:')) {
+          title = line.substring(6).trim() || title;
+          bodyStart = i + 1;
+          continue;
+        }
+        if (lower.startsWith('priority:')) {
+          const nextPriority = Number(line.substring(9).trim());
+          priority = Number.isFinite(nextPriority) ? nextPriority : priority;
+          bodyStart = i + 1;
+          continue;
+        }
+        if (line.trim() === '') {
+          bodyStart = i + 1;
+          break;
+        }
+        break;
+      }
+
+      return {
+        id,
+        category,
+        title,
+        content: lines.slice(bodyStart).join('\n').trim(),
+        priority,
+        status: 'active',
+        source: 'manual',
+        updatedAt: new Date().toISOString()
+      };
+    });
+}
+
+function readEditableKnowledgeEntries() {
+  ensureEditableKnowledgeFile();
+  return parseEditableKnowledge(fs.readFileSync(editableKnowledgeFile, 'utf8'));
+}
+
+function writeEditableKnowledgeEntries(entries: EditableKnowledgeEntry[]) {
+  ensureEditableKnowledgeFile();
+  const content = entries.map(buildKnowledgeChunk).join('\n');
+  fs.writeFileSync(editableKnowledgeFile, content ? `${content}\n` : '', 'utf8');
+  indexer.loadKnowledgeBase();
+}
 
 // --- Login endpoint (no auth required) ---
 consoleRouter.post('/login', (req: Request, res: Response) => {
@@ -121,6 +230,7 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
     TELEGRAM_ENABLED: config.telegram.enabled,
     TELEGRAM_BOT_TOKEN: config.telegram.botToken ? 'configured' : '',
     TELEGRAM_ADMIN_ID: config.telegram.adminId,
+    TELEGRAM_ADMIN_IDS: config.telegram.adminIds || config.telegram.adminId,
     TELEGRAM_MODE: config.telegram.mode,
     TELEGRAM_WEBHOOK_URL: config.telegram.webhookUrl,
 
@@ -172,6 +282,21 @@ consoleRouter.post('/smtp/test', async (req: Request, res: Response) => {
     res.json(result);
   } catch (err: any) {
     res.json({ success: false, error: err.message });
+  }
+});
+
+// --- Telegram Admin Notification Test ---
+consoleRouter.post('/telegram/admin-test', async (req: Request, res: Response) => {
+  try {
+    const result = await telegramAdminNotifier.send([
+      '<b>Тест уведомлений BM Concierge</b>',
+      '',
+      'Если вы видите это сообщение, Telegram ID администратора настроен правильно.',
+      `${config.publicBaseUrl}/console`
+    ].join('\n'));
+    res.json(result);
+  } catch (err: any) {
+    res.json({ success: false, sent: 0, failed: 0, error: err.message });
   }
 });
 
@@ -299,6 +424,175 @@ consoleRouter.post('/supabase/test', async (req: Request, res: Response) => {
 // --- Knowledge Base ---
 consoleRouter.get('/kb/status', (req: Request, res: Response) => {
   res.json(indexer.getStatus());
+});
+
+consoleRouter.get('/kb/editable', (req: Request, res: Response) => {
+  try {
+    ensureEditableKnowledgeFile();
+    const content = fs.readFileSync(editableKnowledgeFile, 'utf8');
+    res.json({
+      fileName: 'console_kb.md',
+      content,
+      status: indexer.getStatus()
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.get('/kb/entries', (req: Request, res: Response) => {
+  try {
+    const category = String(req.query.category || '').trim();
+    const search = String(req.query.search || '').trim().toLowerCase();
+    const allEntries = readEditableKnowledgeEntries();
+    let entries = allEntries;
+
+    if (category) entries = entries.filter((entry) => entry.category === category);
+    if (search) {
+      entries = entries.filter((entry) =>
+        `${entry.title}\n${entry.category}\n${entry.content}`.toLowerCase().includes(search)
+      );
+    }
+
+    const categoryMap = new Map<string, number>();
+    allEntries.forEach((entry) => categoryMap.set(entry.category, (categoryMap.get(entry.category) || 0) + 1));
+    const categories = Array.from(categoryMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([id, count]) => ({ id, label: id.replace(/_/g, ' '), count }));
+
+    res.json({ entries, categories, total: entries.length, status: indexer.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.post('/kb/editable', (req: Request, res: Response) => {
+  try {
+    const content = typeof req.body?.content === 'string' ? req.body.content : '';
+    if (content.length > 300000) {
+      return res.status(400).json({ error: 'Knowledge content is too large' });
+    }
+    ensureEditableKnowledgeFile();
+    fs.writeFileSync(editableKnowledgeFile, content, 'utf8');
+    indexer.loadKnowledgeBase();
+    dbStore.logEvent('KB_EDITED', 'База знаний обновлена через Console', { file: 'console_kb.md' });
+    res.json({ success: true, status: indexer.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.post('/kb/chunks', (req: Request, res: Response) => {
+  try {
+    const category = String(req.body?.category || 'custom').trim();
+    const title = String(req.body?.title || '').trim();
+    const text = String(req.body?.text || '').trim();
+    const priority = Number(req.body?.priority ?? 5);
+    if (!title || !text) {
+      return res.status(400).json({ error: 'Title and text are required' });
+    }
+    if (title.length > 160 || text.length > 12000 || category.length > 80) {
+      return res.status(400).json({ error: 'Knowledge entry is too large' });
+    }
+
+    const entries = readEditableKnowledgeEntries();
+    const baseId = slugifyChunkTitle(title);
+    let id = baseId;
+    let suffix = 2;
+    while (entries.some((entry) => entry.id === id)) {
+      id = `${baseId}_${suffix++}`;
+    }
+    entries.unshift({
+      id,
+      category: category || 'custom',
+      title,
+      content: text,
+      priority: Number.isFinite(priority) ? priority : 5,
+      status: 'active',
+      source: 'manual',
+      updatedAt: new Date().toISOString()
+    });
+    writeEditableKnowledgeEntries(entries);
+    dbStore.logEvent('KB_CHUNK_ADDED', `Добавлена запись базы знаний: ${title}`, { file: 'console_kb.md', category });
+    res.json({ success: true, entry: entries[0], status: indexer.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.put('/kb/entries/:id', (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const category = String(req.body?.category || 'custom').trim();
+    const title = String(req.body?.title || '').trim();
+    const content = String(req.body?.content || req.body?.text || '').trim();
+    const priority = Number(req.body?.priority ?? 5);
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
+    if (title.length > 160 || content.length > 12000 || category.length > 80) {
+      return res.status(400).json({ error: 'Knowledge entry is too large' });
+    }
+
+    const entries = readEditableKnowledgeEntries();
+    const entryIndex = entries.findIndex((entry) => entry.id === id);
+    if (entryIndex < 0) return res.status(404).json({ error: 'Knowledge entry not found' });
+
+    entries[entryIndex] = {
+      ...entries[entryIndex],
+      category: category || 'custom',
+      title,
+      content,
+      priority: Number.isFinite(priority) ? priority : entries[entryIndex].priority,
+      updatedAt: new Date().toISOString()
+    };
+    writeEditableKnowledgeEntries(entries);
+    dbStore.logEvent('KB_CHUNK_UPDATED', `Обновлена запись базы знаний: ${title}`, { file: 'console_kb.md', category });
+    res.json({ success: true, entry: entries[entryIndex], status: indexer.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.delete('/kb/entries/:id', (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || '').trim();
+    const entries = readEditableKnowledgeEntries();
+    const nextEntries = entries.filter((entry) => entry.id !== id);
+    if (nextEntries.length === entries.length) return res.status(404).json({ error: 'Knowledge entry not found' });
+    writeEditableKnowledgeEntries(nextEntries);
+    dbStore.logEvent('KB_CHUNK_DELETED', `Удалена запись базы знаний: ${id}`, { file: 'console_kb.md' });
+    res.json({ success: true, status: indexer.getStatus() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+consoleRouter.post('/kb/search', (req: Request, res: Response) => {
+  try {
+    const query = String(req.body?.query || '').trim().toLowerCase();
+    if (!query) return res.json({ matches: [] });
+    const terms = query.split(/\s+/).filter(Boolean);
+    const matches = indexer.getChunks()
+      .map((chunk) => {
+        const text = `${chunk.title || ''}\n${chunk.category || ''}\n${chunk.text}`.toLowerCase();
+        const score = terms.reduce((sum, term) => sum + (text.includes(term) ? 1 : 0), 0);
+        return {
+          id: chunk.title || chunk.sourceFile,
+          title: chunk.title || chunk.sourceFile,
+          category: chunk.category || 'knowledge',
+          sourceFile: chunk.sourceFile,
+          content: chunk.text,
+          score
+        };
+      })
+      .filter((match) => match.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    res.json({ matches });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 consoleRouter.post('/kb/reload', async (req: Request, res: Response) => {
