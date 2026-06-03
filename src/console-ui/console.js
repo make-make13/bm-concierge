@@ -456,6 +456,21 @@ function openProviderConfig(provider) {
         <input type="password" class="form-input" id="cfg-or-key" placeholder="${settings.OPENROUTER_API_KEY === 'configured' ? '********' : 'sk-...'}">
       </div>
       <div class="form-group">
+        <label class="form-label">Выбрать из популярных</label>
+        <select class="form-input" id="cfg-or-model-presets" onchange="if(this.value){document.getElementById('cfg-or-model').value=this.value;} this.selectedIndex=0;">
+          <option value="">— выберите модель —</option>
+          <option value="deepseek/deepseek-chat">DeepSeek Chat (deepseek/deepseek-chat)</option>
+          <option value="deepseek/deepseek-r1">DeepSeek R1 (deepseek/deepseek-r1)</option>
+          <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (google/gemini-2.5-pro)</option>
+          <option value="google/gemini-3.5-flash">Gemini Flash (google/gemini-3.5-flash)</option>
+          <option value="openai/gpt-chat-latest">OpenAI GPT Chat Latest (openai/gpt-chat-latest)</option>
+          <option value="openai/gpt-oss-120b">OpenAI GPT OSS 120B (openai/gpt-oss-120b)</option>
+          <option value="anthropic/claude-sonnet-4">Claude Sonnet (anthropic/claude-sonnet-4)</option>
+          <option value="anthropic/claude-opus-4.8">Claude Opus (anthropic/claude-opus-4.8)</option>
+          <option value="openrouter/auto">OpenRouter Auto (openrouter/auto)</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">Модель</label>
         <input type="text" class="form-input" id="cfg-or-model" value="${settings.OPENROUTER_MODEL || 'deepseek/deepseek-chat'}">
       </div>
