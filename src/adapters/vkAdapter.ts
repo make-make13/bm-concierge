@@ -126,7 +126,27 @@ export class VkAdapter extends BaseAdapter {
     const data: any = await resp.json();
     if (data.error) {
       console.error('[VkAdapter] VK API error:', data.error);
+      throw new Error(`VK API error ${data.error.error_code ?? ''}: ${data.error.error_msg ?? JSON.stringify(data.error)}`);
     }
+  }
+
+  /**
+   * Отправка сообщения в существующий VK-чат через группу (Pass VK-reply).
+   * Используется Operator API для ручного ответа администратора.
+   * Токен берётся из конфига (тот же источник, что и при запуске адаптера).
+   */
+  public async sendMessage(peerId: string | number, text: string): Promise<void> {
+    if (!this.isEnabled()) {
+      throw new Error('VK adapter is not enabled (VK_ENABLED=false)');
+    }
+    const token = config.vk.groupToken;
+    if (!token) {
+      throw new Error('VK group token is not configured');
+    }
+    if (!text || !text.trim()) {
+      throw new Error('Cannot send empty VK message');
+    }
+    await this.sendVkMessage(Number(peerId), text, token);
   }
 
   public stop(): void {

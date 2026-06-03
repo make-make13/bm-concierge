@@ -155,9 +155,9 @@ operatorRouter.get('/channels', (req: Request, res: Response) => {
   const channelStatus = (enabled: boolean) => (enabled ? 'running' : 'not_configured');
   res.json({
     channels: [
-      { id: 'telegram', enabled: config.telegram.enabled, status: channelStatus(config.telegram.enabled), canSend: false },
-      { id: 'vk', enabled: config.vk.enabled, status: channelStatus(config.vk.enabled), canSend: false },
-      { id: 'webchat', enabled: config.webchat.enabled, status: channelStatus(config.webchat.enabled), canSend: false },
+      { id: 'telegram', enabled: config.telegram.enabled, status: channelStatus(config.telegram.enabled), canSend: true },
+      { id: 'vk', enabled: config.vk.enabled, status: channelStatus(config.vk.enabled), canSend: true },
+      { id: 'webchat', enabled: config.webchat.enabled, status: channelStatus(config.webchat.enabled), canSend: false, note: 'pull-only, operator reply requires polling pass' },
     ],
   });
 });
@@ -237,8 +237,9 @@ operatorRouter.post('/conversations/:id/close', (req: Request, res: Response) =>
 });
 
 // --- POST /api/operator/conversations/:id/reply ---
-// Ручной ответ администратора. Pass 4B: поддержан только канал Telegram.
-// Порядок критичен: сначала отправка в Telegram, затем запись operator-сообщения в БД.
+// Ручной ответ администратора. Поддержаны каналы: telegram, vk.
+// Порядок критичен: сначала отправка в канал, затем запись operator-сообщения в БД.
+// WebChat пока возвращает 501 (требует отдельного polling-pass).
 operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Response) => {
   try {
     const conv = fetchConversationOrRespond(res, req.params.id);
@@ -256,29 +257,40 @@ operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Respon
       return sendError(res, 400, 'empty_text', 'Reply text must not be empty');
     }
 
-    if (conv.channel !== 'telegram') {
-      return sendError(res, 501, 'channel_not_supported', 'Manual reply is only supported for Telegram in this pass');
+    const channel = conv.channel as string;
+    if (channel !== 'telegram' && channel !== 'vk') {
+      return sendError(res, 501, 'channel_not_supported', 'Manual reply is only supported for Telegram and VK');
     }
 
-    // id формата "telegram:<chatId>"
+    // Парсим адресата из id: "telegram:<chatId>" или "vk:<peerId>"
     const sep = String(conv.id).indexOf(':');
-    const chatId = sep >= 0 ? String(conv.id).slice(sep + 1) : '';
-    if (!chatId) {
-      return sendError(res, 400, 'invalid_conversation_id', 'Cannot parse Telegram chatId from conversation id');
+    const targetId = sep >= 0 ? String(conv.id).slice(sep + 1) : '';
+    if (!targetId) {
+      return sendError(res, 400, 'invalid_conversation_id', `Cannot parse ${channel} target id from conversation id`);
     }
 
-    // 1) Сначала доставка в канал. Ошибка отправки → operator-сообщение НЕ записываем.
-    try {
-      await adapterManager.getTelegramAdapter().sendMessage(chatId, text);
-    } catch (sendErr: any) {
-      return sendError(res, 502, 'channel_send_failed', sendErr?.message || 'Telegram send failed');
+    const rawJson = JSON.stringify({
+      operator: true,
+      channel,
+      clientMessageId: typeof req.body?.clientMessageId === 'string' ? req.body.clientMessageId : undefined,
+    });
+
+    // 1) Сначала доставка в канал. Ошибка → operator-сообщение НЕ записываем.
+    if (channel === 'telegram') {
+      try {
+        await adapterManager.getTelegramAdapter().sendMessage(targetId, text);
+      } catch (sendErr: any) {
+        return sendError(res, 502, 'channel_send_failed', sendErr?.message || 'Telegram send failed');
+      }
+    } else if (channel === 'vk') {
+      try {
+        await adapterManager.getVkAdapter().sendMessage(targetId, text);
+      } catch (sendErr: any) {
+        return sendError(res, 502, 'channel_send_failed', sendErr?.message || 'VK send failed');
+      }
     }
 
     // 2) Только после успешной доставки — запись operator-сообщения.
-    const rawJson = JSON.stringify({
-      operator: true,
-      clientMessageId: typeof req.body?.clientMessageId === 'string' ? req.body.clientMessageId : undefined,
-    });
     const msg = dbStore.addOperatorMessage(req.params.id, text, rawJson) as any;
 
     res.json({
@@ -290,7 +302,7 @@ operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Respon
         createdAt: msg.created_at ?? null,
       },
       delivered: true,
-      channel: 'telegram',
+      channel,
     });
   } catch (err: any) {
     sendError(res, 500, 'internal_error', err?.message || 'reply failed');

@@ -6,12 +6,14 @@ import { WebchatAdapter } from './webchatAdapter';
 class AdapterManager {
   private adapters: BaseAdapter[] = [];
   private telegram: TelegramAdapter;
+  private vk: VkAdapter;
 
   constructor() {
     this.telegram = new TelegramAdapter();
+    this.vk = new VkAdapter();
     this.adapters = [
       this.telegram,
-      new VkAdapter(),
+      this.vk,
       new WebchatAdapter(),
     ];
   }
@@ -19,6 +21,11 @@ class AdapterManager {
   /** Доступ к запущенному Telegram-адаптеру (для ручного ответа через Operator API). */
   public getTelegramAdapter(): TelegramAdapter {
     return this.telegram;
+  }
+
+  /** Доступ к VK-адаптеру (для ручного ответа через Operator API). */
+  public getVkAdapter(): VkAdapter {
+    return this.vk;
   }
 
   /**
