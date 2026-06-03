@@ -19,6 +19,13 @@ services:
       - DB_PATH=./data/console.db
       - SETTINGS_PATH=./data/settings.json
 
+    # Pin Telegram Bot API to its directly-reachable DC5 IP. The local resolver
+    # returns 149.154.166.110, which the ISP blocks; 149.154.167.220 (DC5, the
+    # canonical Bot API host) is reachable directly — so Telegram does NOT need
+    # the VPN (only OpenRouter is routed through AmneziaWG).
+    extra_hosts:
+      - "api.telegram.org:149.154.167.220"
+
     volumes:
       # SQLite database + runtime settings (persistent across rebuilds)
       - ./data:/app/data
