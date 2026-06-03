@@ -225,6 +225,22 @@ export const dbStore = {
   },
 
   // --- Messages ---
+
+  /**
+   * Записывает ручной ответ администратора (role='operator') и обновляет временные метки.
+   * Возвращает созданную строку сообщения. Схему не меняет (Pass 4B).
+   */
+  addOperatorMessage(conversation_id: string, text: string, raw_json?: string) {
+    const id = uuid();
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO messages (id, conversation_id, role, text, raw_json)
+      VALUES (?, ?, 'operator', ?, ?)
+    `).run(id, conversation_id, text, raw_json || null);
+    db.prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP, last_message_at = CURRENT_TIMESTAMP WHERE id = ?').run(conversation_id);
+    return db.prepare('SELECT id, conversation_id, role, text, raw_json, created_at FROM messages WHERE id = ?').get(id);
+  },
+
   addMessage(conversation_id: string, role: string, text: string, raw_json?: string) {
     const id = uuid();
     getDb().prepare(`

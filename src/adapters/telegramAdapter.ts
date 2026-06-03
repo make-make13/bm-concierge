@@ -116,4 +116,18 @@ export class TelegramAdapter extends BaseAdapter {
       this.status = 'not_configured';
     }
   }
+
+  /**
+   * Отправка сообщения в существующий Telegram-чат через уже запущенный bot (Pass 4B).
+   * Используется Operator API для ручного ответа администратора. Не создаёт второй bot.
+   */
+  public async sendMessage(chatId: string | number, text: string): Promise<void> {
+    if (!this.bot) {
+      throw new Error('Telegram bot is not running (adapter not started)');
+    }
+    if (!text || !text.trim()) {
+      throw new Error('Cannot send empty Telegram message');
+    }
+    await this.bot.telegram.sendMessage(chatId, text);
+  }
 }

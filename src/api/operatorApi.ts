@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { config } from '../config';
 import { dbStore, normalizeConversationStatus } from '../core/dbStore';
 import { indexer } from '../rag/indexer';
+import { adapterManager } from '../adapters/adapterManager';
 
 /**
  * Operator API (Pass 2 — READ ONLY).
@@ -232,6 +233,67 @@ operatorRouter.post('/conversations/:id/close', (req: Request, res: Response) =>
     res.json(mapConversationDetail(dbStore.getConversation(req.params.id)));
   } catch (err: any) {
     sendError(res, 500, 'internal_error', err?.message || 'close failed');
+  }
+});
+
+// --- POST /api/operator/conversations/:id/reply ---
+// Ручной ответ администратора. Pass 4B: поддержан только канал Telegram.
+// Порядок критичен: сначала отправка в Telegram, затем запись operator-сообщения в БД.
+operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Response) => {
+  try {
+    const conv = fetchConversationOrRespond(res, req.params.id);
+    if (!conv) return; // 503/404 уже отправлены
+
+    if (normalizeConversationStatus(conv.status) === 'closed') {
+      return sendError(res, 409, 'conversation_closed', 'Conversation is closed');
+    }
+    if (!(conv.manual_mode === 1 || conv.manual_mode === true)) {
+      return sendError(res, 409, 'not_in_manual_mode', 'Take over the conversation before replying');
+    }
+
+    const text = typeof req.body?.text === 'string' ? req.body.text : '';
+    if (!text.trim()) {
+      return sendError(res, 400, 'empty_text', 'Reply text must not be empty');
+    }
+
+    if (conv.channel !== 'telegram') {
+      return sendError(res, 501, 'channel_not_supported', 'Manual reply is only supported for Telegram in this pass');
+    }
+
+    // id формата "telegram:<chatId>"
+    const sep = String(conv.id).indexOf(':');
+    const chatId = sep >= 0 ? String(conv.id).slice(sep + 1) : '';
+    if (!chatId) {
+      return sendError(res, 400, 'invalid_conversation_id', 'Cannot parse Telegram chatId from conversation id');
+    }
+
+    // 1) Сначала доставка в канал. Ошибка отправки → operator-сообщение НЕ записываем.
+    try {
+      await adapterManager.getTelegramAdapter().sendMessage(chatId, text);
+    } catch (sendErr: any) {
+      return sendError(res, 502, 'channel_send_failed', sendErr?.message || 'Telegram send failed');
+    }
+
+    // 2) Только после успешной доставки — запись operator-сообщения.
+    const rawJson = JSON.stringify({
+      operator: true,
+      clientMessageId: typeof req.body?.clientMessageId === 'string' ? req.body.clientMessageId : undefined,
+    });
+    const msg = dbStore.addOperatorMessage(req.params.id, text, rawJson) as any;
+
+    res.json({
+      ok: true,
+      message: {
+        id: msg.id,
+        role: msg.role,
+        text: msg.text,
+        createdAt: msg.created_at ?? null,
+      },
+      delivered: true,
+      channel: 'telegram',
+    });
+  } catch (err: any) {
+    sendError(res, 500, 'internal_error', err?.message || 'reply failed');
   }
 });
 
