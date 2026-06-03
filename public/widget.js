@@ -30,6 +30,20 @@
       height: 30px;
       fill: currentColor;
     }
+    .bm-msg-operator {
+      align-self: flex-start;
+      background: #e8f5e9;
+      color: #1b5e20;
+      border: 1px solid #a5d6a7;
+    }
+    .bm-msg-operator-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #388e3c;
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
     #bm-chat-window {
       position: absolute;
       bottom: 80px;
@@ -173,27 +187,88 @@
   const sendBtn = document.getElementById('bm-chat-send');
 
   let isOpen = false;
-  
+
   // Try to get session ID from localStorage
   let sessionId = localStorage.getItem('bm_chat_session_id');
+
+  // Polling state: cursor and de-dupe set
+  let lastOperatorCursor = '';        // ISO-дата последнего полученного operator-сообщения
+  const seenMessageIds = new Set();   // de-dupe по id
+  let pollingTimer = null;
 
   function toggleChat() {
     isOpen = !isOpen;
     chatWindow.style.display = isOpen ? 'flex' : 'none';
     if (isOpen) {
       inputEl.focus();
+      startPolling();
+      void pollOperatorMessages(); // немедленный poll при открытии
+    } else {
+      stopPolling();
     }
   }
 
   button.addEventListener('click', toggleChat);
   closeBtn.addEventListener('click', toggleChat);
 
-  function addMessage(text, role) {
+  function addMessage(text, role, msgId) {
+    if (!text || !text.trim()) return;  // не рисовать пустые пузыри
+    if (msgId && seenMessageIds.has(msgId)) return;  // de-dupe
+    if (msgId) seenMessageIds.add(msgId);
+
     const msgEl = document.createElement('div');
-    msgEl.className = 'bm-msg ' + (role === 'guest' ? 'bm-msg-guest' : 'bm-msg-assistant');
-    msgEl.textContent = text;
+    if (role === 'guest') {
+      msgEl.className = 'bm-msg bm-msg-guest';
+    } else if (role === 'operator') {
+      msgEl.className = 'bm-msg bm-msg-operator';
+    } else {
+      msgEl.className = 'bm-msg bm-msg-assistant';
+    }
+
+    if (role === 'operator') {
+      const label = document.createElement('div');
+      label.className = 'bm-msg-operator-label';
+      label.textContent = 'Администратор';
+      msgEl.appendChild(label);
+    }
+
+    const textNode = document.createElement('div');
+    textNode.textContent = text;
+    msgEl.appendChild(textNode);
+
     messagesContainer.appendChild(msgEl);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  // Polling: запрашиваем operator-сообщения пока чат открыт
+  async function pollOperatorMessages() {
+    if (!sessionId || !isOpen) return;
+    try {
+      const url = `${window.location.origin}/api/chat/web/messages?sessionId=${encodeURIComponent(sessionId)}&after=${encodeURIComponent(lastOperatorCursor)}`;
+      const resp = await fetch(url);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        for (const msg of data.messages) {
+          if (msg.text && msg.text.trim()) {
+            addMessage(msg.text, 'operator', msg.id);
+            // обновляем cursor на самое позднее сообщение
+            if (!lastOperatorCursor || (msg.createdAt && msg.createdAt > lastOperatorCursor)) {
+              lastOperatorCursor = msg.createdAt || '';
+            }
+          }
+        }
+      }
+    } catch { /* тихий fail — не прерывать UX */ }
+  }
+
+  function startPolling() {
+    if (pollingTimer) return;
+    pollingTimer = setInterval(pollOperatorMessages, 5000);
+  }
+
+  function stopPolling() {
+    if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
   }
 
   function addTypingIndicator() {
@@ -248,10 +323,15 @@
       if (data.sessionId && !sessionId) {
         sessionId = data.sessionId;
         localStorage.setItem('bm_chat_session_id', sessionId);
+        startPolling(); // стартуем polling как только получили sessionId
       }
 
-      if (data.reply) {
+      if (data.aiSkipped) {
+        // ИИ молчит (manual_mode) — ждём ответа администратора через polling
+        void pollOperatorMessages();
+      } else if (data.reply) {
         addMessage(data.reply, 'assistant');
+        void pollOperatorMessages(); // проверяем и operator-сообщения после AI-ответа
       } else if (data.error) {
         addMessage('Ошибка: ' + data.error, 'assistant');
       }

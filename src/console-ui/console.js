@@ -562,8 +562,8 @@ function opErrorMsg(code, message) {
     case 'unauthorized':
     case 'service_unavailable': return 'Нет доступа или не настроен Operator API';
     case 'not_in_manual_mode': return 'Сначала возьмите диалог на себя';
-    case 'channel_not_supported': return 'Ручной ответ пока доступен только для Telegram';
-    case 'channel_send_failed': return 'Не удалось отправить сообщение в Telegram';
+    case 'channel_not_supported': return 'Ручной ответ для этого канала не поддерживается';
+    case 'channel_send_failed': return 'Не удалось отправить сообщение в канал';
     case 'conversation_closed': return 'Диалог закрыт';
     case 'empty_text': return 'Введите текст ответа';
     case 'not_found': return 'Диалог не найден';
@@ -681,8 +681,10 @@ function configureReplyArea(conv) {
 
   let disabled = false, hintMsg = '';
   if (conv.status === 'closed') { disabled = true; hintMsg = 'Диалог закрыт.'; }
-  else if (conv.channel !== 'telegram') { disabled = true; hintMsg = 'Ручной ответ пока доступен только для Telegram.'; }
-  else if (conv.manualMode !== true) { disabled = true; hintMsg = 'Сначала нажмите «Взять на себя».'; }
+  else if (conv.channel === 'webchat') { /* активно, подсказка ниже */ }
+  else if (conv.channel !== 'telegram' && conv.channel !== 'vk') { disabled = true; hintMsg = 'Ручной ответ для этого канала не поддерживается.'; }
+  if (!disabled && conv.manualMode !== true) { disabled = true; hintMsg = 'Сначала нажмите «Взять на себя».'; }
+  if (!disabled && conv.channel === 'webchat') { hintMsg = 'Ответ будет доставлен гостю через виджет сайта.'; }
 
   input.disabled = disabled;
   btn.disabled = disabled;
@@ -707,7 +709,7 @@ async function sendOperatorReply() {
   if (!text || !currentConversationId) return;
   const conv = currentConvDetail;
   if (conv && conv.status === 'closed') { showChatError('Диалог закрыт.'); return; }
-  if (conv && conv.channel !== 'telegram') { showChatError('Ручной ответ пока доступен только для Telegram.'); return; }
+  if (conv && conv.channel !== 'telegram' && conv.channel !== 'vk' && conv.channel !== 'webchat') { showChatError('Ручной ответ для этого канала не поддерживается.'); return; }
   if (conv && conv.manualMode !== true) { showChatError('Сначала нажмите «Взять на себя».'); return; }
 
   hideChatError();

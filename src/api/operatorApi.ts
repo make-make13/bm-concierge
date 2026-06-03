@@ -157,7 +157,7 @@ operatorRouter.get('/channels', (req: Request, res: Response) => {
     channels: [
       { id: 'telegram', enabled: config.telegram.enabled, status: channelStatus(config.telegram.enabled), canSend: true },
       { id: 'vk', enabled: config.vk.enabled, status: channelStatus(config.vk.enabled), canSend: true },
-      { id: 'webchat', enabled: config.webchat.enabled, status: channelStatus(config.webchat.enabled), canSend: false, note: 'pull-only, operator reply requires polling pass' },
+      { id: 'webchat', enabled: config.webchat.enabled, status: channelStatus(config.webchat.enabled), canSend: true, deliveryMode: 'polling' },
     ],
   });
 });
@@ -258,8 +258,8 @@ operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Respon
     }
 
     const channel = conv.channel as string;
-    if (channel !== 'telegram' && channel !== 'vk') {
-      return sendError(res, 501, 'channel_not_supported', 'Manual reply is only supported for Telegram and VK');
+    if (channel !== 'telegram' && channel !== 'vk' && channel !== 'webchat') {
+      return sendError(res, 501, 'channel_not_supported', 'Manual reply is supported for Telegram, VK and WebChat');
     }
 
     // Парсим адресата из id: "telegram:<chatId>" или "vk:<peerId>"
@@ -275,7 +275,19 @@ operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Respon
       clientMessageId: typeof req.body?.clientMessageId === 'string' ? req.body.clientMessageId : undefined,
     });
 
-    // 1) Сначала доставка в канал. Ошибка → operator-сообщение НЕ записываем.
+    if (channel === 'webchat') {
+      // WebChat — нет push-доставки. Записываем в БД, виджет заберёт через polling.
+      const msg = dbStore.addOperatorMessage(req.params.id, text, rawJson) as any;
+      return res.json({
+        ok: true,
+        message: { id: msg.id, role: msg.role, text: msg.text, createdAt: msg.created_at ?? null },
+        delivered: false,
+        deliveryMode: 'polling',
+        channel: 'webchat',
+      });
+    }
+
+    // Telegram/VK: сначала отправка в канал, только потом запись в БД.
     if (channel === 'telegram') {
       try {
         await adapterManager.getTelegramAdapter().sendMessage(targetId, text);
@@ -290,17 +302,12 @@ operatorRouter.post('/conversations/:id/reply', async (req: Request, res: Respon
       }
     }
 
-    // 2) Только после успешной доставки — запись operator-сообщения.
+    // Запись operator-сообщения только после успешной доставки.
     const msg = dbStore.addOperatorMessage(req.params.id, text, rawJson) as any;
 
     res.json({
       ok: true,
-      message: {
-        id: msg.id,
-        role: msg.role,
-        text: msg.text,
-        createdAt: msg.created_at ?? null,
-      },
+      message: { id: msg.id, role: msg.role, text: msg.text, createdAt: msg.created_at ?? null },
       delivered: true,
       channel,
     });

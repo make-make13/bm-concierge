@@ -1,6 +1,7 @@
 import { BaseAdapter } from './baseAdapter';
 import { conversationService } from '../core/conversationService';
 import { config } from '../config';
+import { dbStore } from '../core/dbStore';
 import crypto from 'crypto';
 
 export class WebchatAdapter extends BaseAdapter {
@@ -20,6 +21,41 @@ export class WebchatAdapter extends BaseAdapter {
 
     try {
       console.log('[WebchatAdapter] Registering REST routes...');
+
+      // --- GET /api/chat/web/messages --- polling для виджета ---
+      // Возвращает operator-сообщения диалога после заданного cursor (ISO-дата).
+      // Публичный endpoint: отдаёт только сообщения того sessionId, что передан.
+      app.get('/api/chat/web/messages', (req: any, res: any) => {
+        try {
+          const sessionId = typeof req.query.sessionId === 'string' ? req.query.sessionId.trim() : '';
+          if (!sessionId) {
+            return res.status(400).json({ error: 'sessionId is required' });
+          }
+          const conversationId = `webchat:${sessionId}`;
+          const after = typeof req.query.after === 'string' ? req.query.after.trim() : '';
+
+          const allMessages = (dbStore.getConversationMessages(conversationId) as any[]);
+          const operatorMessages = allMessages.filter((m: any) => {
+            if (m.role !== 'operator') return false;
+            if (!after) return true;
+            // Сравниваем строки ISO — SQLite хранит UTC datetime как строку
+            return m.created_at > after;
+          });
+
+          res.json({
+            messages: operatorMessages.map((m: any) => ({
+              id: m.id,
+              role: m.role,
+              text: m.text,
+              createdAt: m.created_at ?? null,
+            })),
+            serverTime: new Date().toISOString(),
+          });
+        } catch (err) {
+          console.error('[WebchatAdapter] Error in polling endpoint:', err);
+          res.status(500).json({ error: 'Internal server error' });
+        }
+      });
 
       // Пример простого REST API для вебчата
       app.post('/api/chat/web', async (req: any, res: any) => {
