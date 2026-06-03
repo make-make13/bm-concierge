@@ -1,4 +1,5 @@
 import { dbStore, normalizeConversationStatus } from './dbStore';
+import { detectEscalation } from './escalation';
 import { conciergeEngine } from './conciergeEngine';
 import { LeadExtractor } from './leadExtractor';
 import { supabaseWriter } from '../integrations/supabaseLeads';
@@ -88,6 +89,31 @@ export class ConversationService {
 
     // 5. Сохраняем ответ ИИ
     dbStore.addMessage(externalConversationId, 'assistant', replyText, JSON.stringify({ aiProvider: config.aiProvider }));
+
+    // 5.1 Авто-эскалация (Pass 5): помечаем диалог как «нужен администратор», но ИИ НЕ глушим.
+    // Сюда мы попадаем только при manual_mode=0 и status != closed (guard выше уже отсёк остальное).
+    try {
+      const escalation = detectEscalation(message, aiReply);
+      if (escalation.needsAttention && escalation.reason) {
+        const fresh = dbStore.getConversation(externalConversationId) as any;
+        const freshStatus = fresh ? normalizeConversationStatus(fresh.status) : 'ai';
+        const isManualNow = fresh ? (fresh.manual_mode === 1 || fresh.manual_mode === true) : false;
+        // Не трогаем диалоги, которые уже ведёт оператор или закрытые (анти-гонка).
+        if (!isManualNow && freshStatus !== 'operator' && freshStatus !== 'closed') {
+          const already = fresh && fresh.needs_attention === 1 && fresh.escalation_reason === escalation.reason;
+          dbStore.setConversationNeedsAttention(externalConversationId, escalation.reason);
+          if (!already) {
+            dbStore.logEvent(
+              'CONVERSATION_ESCALATED',
+              `Диалог ${externalConversationId} требует администратора: ${escalation.reason}`,
+              { convId: externalConversationId, reason: escalation.reason, channel }
+            );
+          }
+        }
+      }
+    } catch (escErr) {
+      console.error('Escalation detection failed:', escErr);
+    }
 
     let leadCreated = false;
     let localLeadId: string | null = null;
