@@ -523,53 +523,194 @@ async function saveGeneralSettings() {
   loadSettings();
 }
 
-// --- Conversations ---
+// --- Conversations (Operator Inbox) ---
+let allConversations = [];
+let currentFilter = 'all';
+let currentConvDetail = null;
+
+const STATUS_BADGES = {
+  ai: { label: 'ИИ отвечает', cls: 'badge-ai' },
+  needs_attention: { label: 'Нужен администратор', cls: 'badge-attention' },
+  operator: { label: 'Администратор отвечает', cls: 'badge-operator' },
+  lead_created: { label: 'Заявка создана', cls: 'badge-lead' },
+  closed: { label: 'Закрыт', cls: 'badge-closed' },
+  error: { label: 'Ошибка', cls: 'badge-error' },
+};
+const ROLE_LABEL = { guest: 'Гость', assistant: 'ИИ', operator: 'Администратор' };
+
+function statusBadge(status) {
+  const b = STATUS_BADGES[status] || STATUS_BADGES.ai;
+  return `<span class="conv-badge ${b.cls}">${b.label}</span>`;
+}
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function opErrorMsg(code, message) {
+  switch (code) {
+    case 'not_configured':
+    case 'unauthorized':
+    case 'service_unavailable': return 'Нет доступа или не настроен Operator API';
+    case 'not_in_manual_mode': return 'Сначала возьмите диалог на себя';
+    case 'channel_not_supported': return 'Ручной ответ пока доступен только для Telegram';
+    case 'channel_send_failed': return 'Не удалось отправить сообщение в Telegram';
+    case 'conversation_closed': return 'Диалог закрыт';
+    case 'empty_text': return 'Введите текст ответа';
+    case 'not_found': return 'Диалог не найден';
+    default: return message || 'Ошибка';
+  }
+}
+function showChatError(msg) {
+  const el = document.getElementById('chat-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+function hideChatError() {
+  const el = document.getElementById('chat-error');
+  if (el) el.classList.add('hidden');
+}
+
+function setConvFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.conv-filter').forEach(b => b.classList.toggle('active', b.getAttribute('data-filter') === f));
+  renderConvList();
+}
+window.setConvFilter = setConvFilter;
+
+function convMatchesFilter(c) {
+  switch (currentFilter) {
+    case 'needs_attention': return c.needsAttention === true || c.status === 'needs_attention';
+    case 'operator': return c.status === 'operator';
+    case 'ai': return c.status === 'ai';
+    case 'closed': return c.status === 'closed';
+    default: return true;
+  }
+}
+
 async function loadConversations() {
-  const convs = await apiFetch('/conversations');
+  const data = await apiFetch('/operator/conversations?filter=all');
   const container = document.getElementById('conv-list-container');
-  if (Array.isArray(convs)) {
-    container.innerHTML = convs.map(c => `
-      <div class="conv-item ${currentConversationId === c.id ? 'active' : ''}" onclick="openConversation('${c.id}')">
-        <div class="conv-item-name">${c.guest_name}</div>
-        <div class="conv-item-meta">${c.channel} | ${new Date(c.updated_at).toLocaleString()}</div>
-      </div>
-    `).join('') || '<div class="empty">Нет диалогов</div>';
+  if (!data || data.error) {
+    allConversations = [];
+    container.innerHTML = '<div class="empty">' + opErrorMsg(data && data.error && data.error.code) + '</div>';
+    return;
   }
+  allConversations = data.items || [];
+  renderConvList();
+}
+window.loadConversations = loadConversations;
+
+function renderConvList() {
+  const container = document.getElementById('conv-list-container');
+  const items = allConversations.filter(convMatchesFilter);
+  if (!items.length) { container.innerHTML = '<div class="empty">Нет диалогов</div>'; return; }
+  container.innerHTML = items.map(c => `
+    <div class="conv-item ${currentConversationId === c.id ? 'active' : ''}" onclick="openConversation('${encodeURIComponent(c.id)}')">
+      <div class="conv-item-top">
+        <span class="conv-item-name">${escapeHtml(c.guestName || 'Гость')}</span>
+        ${statusBadge(c.status)}
+      </div>
+      <div class="conv-item-preview">${escapeHtml(c.lastMessagePreview || '—')}</div>
+      <div class="conv-item-meta">
+        <span class="conv-chan">${escapeHtml(c.channel || '')}</span>
+        <span>${c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : ''}</span>
+        ${c.linkedLeadId ? '<span class="conv-lead">📋 заявка</span>' : ''}
+      </div>
+    </div>
+  `).join('');
 }
 
-async function openConversation(id) {
+async function openConversation(encId) {
+  const id = decodeURIComponent(encId);
   currentConversationId = id;
-  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
-  
-  const conv = await apiFetch('/conversations/' + id);
+  hideChatError();
+
+  const conv = await apiFetch('/operator/conversations/' + encodeURIComponent(id));
+  if (!conv || conv.error) { showChatError(opErrorMsg(conv && conv.error && conv.error.code)); return; }
+  currentConvDetail = conv;
+  renderConvList(); // подсветить активный
+
+  document.getElementById('chat-title').innerHTML = escapeHtml(conv.guestName || 'Гость') + ' ' + statusBadge(conv.status);
+  document.getElementById('chat-actions').classList.remove('hidden');
+
+  const closed = conv.status === 'closed';
+  document.getElementById('btn-takeover').disabled = closed || conv.manualMode === true;
+  document.getElementById('btn-return').disabled = closed || conv.manualMode !== true;
+  document.getElementById('btn-close').disabled = closed;
+
+  const sub = document.getElementById('chat-subbar');
+  let subHtml = `<span class="sub-chip">Канал: ${escapeHtml(conv.channel || '—')}</span>`;
+  if (conv.assignedTo) subHtml += `<span class="sub-chip">Оператор: ${escapeHtml(conv.assignedTo)}</span>`;
+  if (conv.linkedLeadId) subHtml += `<span class="sub-chip">Заявка: ${escapeHtml(conv.linkedLeadId)}</span>`;
+  if (conv.aiSummary) subHtml += `<div class="sub-summary">AI-резюме: ${escapeHtml(conv.aiSummary)}</div>`;
+  sub.innerHTML = subHtml;
+  sub.classList.remove('hidden');
+
   const chatMessages = document.getElementById('chat-messages');
-  document.getElementById('chat-header').textContent = conv.guest_name;
-  document.getElementById('chat-input-area').classList.remove('hidden');
-  
-  if (conv.messages) {
-    chatMessages.innerHTML = conv.messages.map(m => `
-      <div class="msg msg-${m.role}">
-        <div class="msg-text">${m.text}</div>
-        <div class="msg-time">${new Date(m.created_at).toLocaleTimeString()}</div>
-      </div>
-    `).join('');
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }
+  const msgs = (conv.messages || []).filter(m => m.text && String(m.text).trim());
+  chatMessages.innerHTML = msgs.map(m => `
+    <div class="msg msg-${m.role}">
+      <div class="msg-role">${ROLE_LABEL[m.role] || escapeHtml(m.role)}</div>
+      <div class="msg-text">${escapeHtml(m.text)}</div>
+      <div class="msg-time">${m.createdAt ? new Date(m.createdAt).toLocaleTimeString() : ''}</div>
+    </div>
+  `).join('') || '<div class="empty">Нет сообщений</div>';
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  configureReplyArea(conv);
+}
+window.openConversation = openConversation;
+
+function configureReplyArea(conv) {
+  const area = document.getElementById('chat-input-area');
+  const hint = document.getElementById('reply-hint');
+  const input = document.getElementById('chat-input');
+  const btn = document.getElementById('reply-send-btn');
+  area.classList.remove('hidden');
+
+  let disabled = false, hintMsg = '';
+  if (conv.status === 'closed') { disabled = true; hintMsg = 'Диалог закрыт.'; }
+  else if (conv.channel !== 'telegram') { disabled = true; hintMsg = 'Ручной ответ пока доступен только для Telegram.'; }
+  else if (conv.manualMode !== true) { disabled = true; hintMsg = 'Сначала нажмите «Взять на себя».'; }
+
+  input.disabled = disabled;
+  btn.disabled = disabled;
+  if (hintMsg) { hint.textContent = hintMsg; hint.classList.remove('hidden'); }
+  else { hint.classList.add('hidden'); }
 }
 
-async function sendMessage() {
-  const input = document.getElementById('chat-input');
-  const message = input.value.trim();
-  if (!message || !currentConversationId) return;
-  
-  input.value = '';
-  await apiFetch('/conversations/' + currentConversationId + '/messages', {
-    method: 'POST',
-    body: JSON.stringify({ message })
-  });
-  
-  openConversation(currentConversationId);
+async function opAction(action) {
+  if (!currentConversationId) return;
+  hideChatError();
+  const body = action === 'take-over' ? JSON.stringify({ assignedTo: 'Админ' }) : '{}';
+  const data = await apiFetch('/operator/conversations/' + encodeURIComponent(currentConversationId) + '/' + action, { method: 'POST', body });
+  if (data && data.error) { showChatError(opErrorMsg(data.error.code, data.error.message)); }
+  await loadConversations();
+  await openConversation(encodeURIComponent(currentConversationId));
 }
+window.opAction = opAction;
+
+async function sendOperatorReply() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text || !currentConversationId) return;
+  const conv = currentConvDetail;
+  if (conv && conv.status === 'closed') { showChatError('Диалог закрыт.'); return; }
+  if (conv && conv.channel !== 'telegram') { showChatError('Ручной ответ пока доступен только для Telegram.'); return; }
+  if (conv && conv.manualMode !== true) { showChatError('Сначала нажмите «Взять на себя».'); return; }
+
+  hideChatError();
+  const data = await apiFetch('/operator/conversations/' + encodeURIComponent(currentConversationId) + '/reply', {
+    method: 'POST',
+    body: JSON.stringify({ text })
+  });
+  if (data && data.error) { showChatError(opErrorMsg(data.error.code, data.error.message)); return; }
+  input.value = '';
+  await openConversation(encodeURIComponent(currentConversationId));
+  await loadConversations();
+}
+window.sendOperatorReply = sendOperatorReply;
 
 // --- Leads ---
 async function loadLeads() {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Батлер - БМ Консьерж</title>
-  <link rel="stylesheet" href="console.css?v=7">
+  <link rel="stylesheet" href="console.css?v=8">
 </head>
 <body>
   
@@ -319,17 +319,37 @@
       <div id="view-conversations" class="view hidden">
         <div class="page-header">
           <div class="page-title">Диалоги</div>
+          <button class="btn btn-secondary" onclick="loadConversations()">Обновить</button>
+        </div>
+        <div class="conv-filters" id="conv-filters">
+          <button class="conv-filter active" data-filter="all" onclick="setConvFilter('all')">Все</button>
+          <button class="conv-filter" data-filter="needs_attention" onclick="setConvFilter('needs_attention')">Нужен администратор</button>
+          <button class="conv-filter" data-filter="operator" onclick="setConvFilter('operator')">Администратор отвечает</button>
+          <button class="conv-filter" data-filter="ai" onclick="setConvFilter('ai')">ИИ отвечает</button>
+          <button class="conv-filter" data-filter="closed" onclick="setConvFilter('closed')">Закрытые</button>
         </div>
         <div class="grid-1-2">
           <div class="conv-list" id="conv-list-container">
             <div class="loading">Загрузка диалогов...</div>
           </div>
           <div class="conv-chat">
-            <div id="chat-header" class="chat-header">Выберите диалог</div>
+            <div class="chat-header" id="chat-header">
+              <div id="chat-title">Выберите диалог</div>
+              <div id="chat-actions" class="chat-actions hidden">
+                <button class="btn btn-sm" id="btn-takeover" onclick="opAction('take-over')">Взять на себя</button>
+                <button class="btn btn-sm btn-secondary" id="btn-return" onclick="opAction('return-to-ai')">Вернуть ИИ</button>
+                <button class="btn btn-sm btn-secondary" id="btn-close" onclick="opAction('close')">Закрыть</button>
+              </div>
+            </div>
+            <div id="chat-subbar" class="chat-subbar hidden"></div>
             <div id="chat-messages" class="chat-messages"></div>
+            <div id="chat-error" class="chat-error hidden"></div>
             <div id="chat-input-area" class="chat-input-area hidden">
-              <input type="text" id="chat-input" placeholder="Введите сообщение от лица ассистента...">
-              <button class="btn" onclick="sendMessage()">Отправить</button>
+              <div id="reply-hint" class="reply-hint hidden"></div>
+              <div class="reply-row">
+                <input type="text" id="chat-input" placeholder="Написать ответ гостю..." onkeydown="if(event.key==='Enter')sendOperatorReply()">
+                <button class="btn" id="reply-send-btn" onclick="sendOperatorReply()">Отправить</button>
+              </div>
             </div>
           </div>
         </div>
@@ -424,6 +444,6 @@
     </div>
   </div>
 
-  <script src="console.js?v=7"></script>
+  <script src="console.js?v=8"></script>
 </body>
 </html>

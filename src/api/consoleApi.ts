@@ -216,6 +216,42 @@ consoleRouter.post('/conversations/:id/messages', async (req: Request, res: Resp
   }
 });
 
+// --- Operator API proxy (console-cookie protected) ---
+// Console UI ходит сюда; сервер подставляет OPERATOR_API_TOKEN.
+// Токен Operator API НЕ попадает во frontend — остаётся только на сервере.
+async function proxyToOperator(req: Request, res: Response, method: string, subPath: string) {
+  if (!config.operatorApiToken) {
+    return res.status(503).json({ error: { code: 'not_configured', message: 'OPERATOR_API_TOKEN is not set on the server' } });
+  }
+  try {
+    const url = `http://127.0.0.1:${config.port}/api/operator${subPath}`;
+    const r = await fetch(url, {
+      method,
+      headers: { 'Authorization': `Bearer ${config.operatorApiToken}`, 'Content-Type': 'application/json' },
+      body: method === 'GET' ? undefined : JSON.stringify(req.body || {}),
+    });
+    const text = await r.text();
+    res.status(r.status).type('application/json').send(text || '{}');
+  } catch (err: any) {
+    res.status(502).json({ error: { code: 'proxy_failed', message: err?.message || 'Operator API proxy failed' } });
+  }
+}
+
+consoleRouter.get('/operator/conversations', (req: Request, res: Response) => {
+  const filter = encodeURIComponent(String(req.query.filter || 'all'));
+  return proxyToOperator(req, res, 'GET', `/conversations?filter=${filter}&limit=200`);
+});
+consoleRouter.get('/operator/conversations/:id', (req: Request, res: Response) =>
+  proxyToOperator(req, res, 'GET', `/conversations/${encodeURIComponent(req.params.id)}`));
+consoleRouter.post('/operator/conversations/:id/take-over', (req: Request, res: Response) =>
+  proxyToOperator(req, res, 'POST', `/conversations/${encodeURIComponent(req.params.id)}/take-over`));
+consoleRouter.post('/operator/conversations/:id/return-to-ai', (req: Request, res: Response) =>
+  proxyToOperator(req, res, 'POST', `/conversations/${encodeURIComponent(req.params.id)}/return-to-ai`));
+consoleRouter.post('/operator/conversations/:id/close', (req: Request, res: Response) =>
+  proxyToOperator(req, res, 'POST', `/conversations/${encodeURIComponent(req.params.id)}/close`));
+consoleRouter.post('/operator/conversations/:id/reply', (req: Request, res: Response) =>
+  proxyToOperator(req, res, 'POST', `/conversations/${encodeURIComponent(req.params.id)}/reply`));
+
 // --- Leads ---
 consoleRouter.get('/leads', (req: Request, res: Response) => {
   res.json(dbStore.getLeads());
