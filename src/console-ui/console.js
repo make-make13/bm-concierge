@@ -989,19 +989,40 @@ async function sendTestMessage() {
   if (!message) return;
   
   const container = document.getElementById('test-messages');
-  container.innerHTML += '<div class="msg msg-guest"><div class="msg-text">' + message + '</div></div>';
+  const esc = (typeof escapeHtml === 'function') ? escapeHtml : (x => String(x));
+  const btn = document.querySelector('#view-test-chat .chat-input-area .btn');
+
+  container.insertAdjacentHTML('beforeend', '<div class="msg msg-guest"><div class="msg-text">' + esc(message) + '</div></div>');
   input.value = '';
   container.scrollTop = container.scrollHeight;
-  
-  const res = await apiFetch('/conversations/test-session/messages', {
-    method: 'POST',
-    body: JSON.stringify({ message })
-  });
 
-  const replyText = (res && typeof res.reply === 'string' && res.reply)
-    ? res.reply
-    : (res && res.error ? ('Ошибка: ' + res.error) : 'Нет ответа от сервера');
-  container.innerHTML += '<div class="msg msg-assistant"><div class="msg-text">' + replyText + '</div></div>';
+  // loading state
+  if (btn) btn.disabled = true;
+  const thinkingId = 'test-thinking-' + Date.now();
+  container.insertAdjacentHTML('beforeend',
+    '<div class="msg msg-assistant msg-thinking" id="' + thinkingId + '"><div class="msg-text"><span class="typing-dots"><span></span><span></span><span></span></span> ИИ думает…</div></div>');
+  container.scrollTop = container.scrollHeight;
+
+  let res;
+  try {
+    res = await apiFetch('/conversations/test-session/messages', {
+      method: 'POST',
+      body: JSON.stringify({ message })
+    });
+  } catch (e) {
+    res = { error: 'сеть недоступна' };
+  }
+
+  const thinking = document.getElementById(thinkingId);
+  if (thinking) thinking.remove();
+  if (btn) btn.disabled = false;
+
+  if (res && typeof res.reply === 'string' && res.reply) {
+    container.insertAdjacentHTML('beforeend', '<div class="msg msg-assistant"><div class="msg-text">' + esc(res.reply) + '</div></div>');
+  } else {
+    const errText = (res && res.error) ? ('Ошибка: ' + esc(String(res.error))) : 'Нет ответа от сервера';
+    container.insertAdjacentHTML('beforeend', '<div class="msg msg-error"><div class="msg-text">' + errText + '</div></div>');
+  }
   container.scrollTop = container.scrollHeight;
 }
 

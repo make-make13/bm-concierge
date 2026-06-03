@@ -1619,3 +1619,188 @@ tbody tr:hover td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================= */
+/* Console V2 — UX structure + visual polish (Pass 1)            */
+/* ============================================================= */
+
+/* Page subtitle already used; tighten dashboard density */
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.quick-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-action svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  flex: 0 0 auto;
+}
+
+/* Placeholder screens for sections without backend yet */
+.placeholder-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  max-width: 560px;
+  margin: 8px auto 0;
+  padding: 48px 28px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--muted);
+}
+
+.placeholder-card h3 {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.placeholder-card p {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 420px;
+  margin: 0;
+}
+
+.placeholder-card .ph-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: rgba(250, 250, 250, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-card .ph-icon svg {
+  width: 26px;
+  height: 26px;
+  fill: var(--muted);
+}
+
+.placeholder-card .ph-soon {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: rgba(250, 250, 250, 0.08);
+  color: var(--muted);
+}
+
+.placeholder-danger .ph-icon {
+  background: var(--danger-bg);
+}
+.placeholder-danger .ph-icon svg {
+  fill: var(--danger);
+}
+
+/* Test Chat — compact card, no giant empty void */
+.test-chat-wrap {
+  max-width: 760px;
+}
+
+.test-sys-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--accent-blue-soft);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.test-sys-note svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--accent-blue);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.test-chat-card {
+  display: flex;
+  flex-direction: column;
+  height: min(560px, calc(100vh - 250px));
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.test-chat-messages {
+  background: #0d0d0d;
+}
+
+.test-chat-messages .msg {
+  max-width: 86%;
+}
+
+/* Loading + error message states (test chat) */
+.msg-thinking {
+  opacity: 0.9;
+}
+
+.msg-error {
+  align-self: flex-start;
+  background: var(--danger-bg);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--danger);
+}
+
+.typing-dots {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.typing-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+  animation: typing-bounce 1s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+  30% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* Tidy select control look in dark theme (model presets, filters) */
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='%23a6a6a6'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+}
+
+/* Keep page header sticky-feel readable on long scroll views */
+.page-subtitle {
+  max-width: 640px;
+}
