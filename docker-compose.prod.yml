@@ -1,0 +1,43 @@
+services:
+  bm-concierge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bm-concierge
+    restart: unless-stopped
+
+    # Expose only to localhost — Nginx proxies from outside
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    env_file:
+      - .env.production
+
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=./data/console.db
+      - SETTINGS_PATH=./data/settings.json
+
+    volumes:
+      # SQLite database + runtime settings (persistent across rebuilds)
+      - ./data:/app/data
+      # Logs (optional, for easy access from host)
+      - ./logs:/app/logs
+      # Knowledge base: mounted so it can be updated without rebuilding image.
+      # The image also contains a copy; the host mount takes precedence.
+      - ./src/knowledge:/app/src/knowledge
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
