@@ -74,7 +74,7 @@ async function loadDashboard() {
           <div class="event-time">${new Date(e.created_at).toLocaleString()}</div>
         </div>
       </div>
-    `).join('') || '<div class="empty">Нет событий за период</div>';
+    `).join('') || '<div class="empty empty-rich"><b>Событий за период нет</b><span>Ошибок и новых системных событий не найдено. Можно проверить каналы или открыть центр проверки.</span></div>';
   }
   
   // Status
@@ -103,6 +103,28 @@ async function loadDashboard() {
         <span class="status-badge ${s.smtp ? 'active' : ''}">${s.smtp ? 'ВКЛ' : 'ВЫКЛ'}</span>
       </div>
     `;
+
+    const channelsBox = document.getElementById('dash-channels');
+    if (channelsBox) {
+      channelsBox.innerHTML = `
+        <div class="channel-line">
+          <div><b>Telegram</b><span>Бот и админ-уведомления</span></div>
+          <span class="status-badge ${s.telegram ? 'active' : ''}">${s.telegram ? 'ВКЛ' : 'ВЫКЛ'}</span>
+        </div>
+        <div class="channel-line">
+          <div><b>WebChat</b><span>Виджет сайта и ручные ответы</span></div>
+          <span class="status-badge ${s.webchat ? 'active' : ''}">${s.webchat ? 'ВКЛ' : 'ВЫКЛ'}</span>
+        </div>
+        <div class="channel-line">
+          <div><b>Supabase</b><span>Синхронизация заявок</span></div>
+          <span class="status-badge ${s.supabase ? 'active' : ''}">${s.supabase ? 'OK' : 'FAIL'}</span>
+        </div>
+        <div class="channel-line">
+          <div><b>SMTP</b><span>Email-уведомления</span></div>
+          <span class="status-badge ${s.smtp ? 'active' : ''}">${s.smtp ? 'ВКЛ' : 'ВЫКЛ'}</span>
+        </div>
+      `;
+    }
   }
   
   // Onboarding
@@ -117,7 +139,11 @@ async function loadDashboard() {
       { label: 'SMTP настроен', ok: ob.smtpConfigured },
       { label: 'База знаний загружена', ok: ob.knowledgeLoaded },
     ];
-    obList.innerHTML = items.map(it => `
+    const pending = items.filter(it => !it.ok).length;
+    const pendingWord = pending === 1 ? 'пункт требует' : pending < 5 ? 'пункта требуют' : 'пунктов требуют';
+    obList.innerHTML = (pending
+      ? `<div class="attention-summary"><b>${pending} ${pendingWord} внимания</b><span>Закройте их в интеграциях или базе знаний.</span></div>`
+      : '<div class="attention-summary ok"><b>Критичных пунктов нет</b><span>Основные настройки выглядят заполненными.</span></div>') + items.map(it => `
       <div class="onboarding-item ${it.ok ? 'done' : ''}">
         <div class="ob-check">${it.ok ? '✓' : ''}</div>
         <span>${it.label}</span>
@@ -135,14 +161,23 @@ async function loadSettings() {
     document.getElementById('setting-ai-provider').value = settings.AI_PROVIDER;
     document.getElementById('setting-public-url').value = settings.PUBLIC_BASE_URL || '';
   }
+  updateSettingsSummary();
   
   // Update provider statuses
   updateProviderStatuses();
   updateIntegrationStatuses();
 }
 
+function updateSettingsSummary() {
+  const providerLabel = document.getElementById('settings-ai-provider-label');
+  const publicUrlLabel = document.getElementById('settings-public-url-label');
+  if (providerLabel) providerLabel.textContent = settings.AI_PROVIDER || 'не выбран';
+  if (publicUrlLabel) publicUrlLabel.textContent = settings.PUBLIC_BASE_URL ? 'задан' : 'не задан';
+}
+
 async function updateProviderStatuses() {
   const orStatus = document.getElementById('status-openrouter');
+  const orIntegrationStatus = document.getElementById('status-integr-openrouter');
   if (orStatus) {
     if (settings.OPENROUTER_ENABLED === true || settings.OPENROUTER_ENABLED === 'true') {
         orStatus.className = 'status-badge active';
@@ -151,6 +186,10 @@ async function updateProviderStatuses() {
         orStatus.className = 'status-badge';
         orStatus.innerHTML = '<div class="status-dot"></div> Не активно';
     }
+  }
+  if (orIntegrationStatus) {
+    orIntegrationStatus.className = orStatus ? orStatus.className : 'status-badge';
+    orIntegrationStatus.innerHTML = orStatus ? orStatus.innerHTML : '<div class="status-dot"></div> Не активно';
   }
 
   const dsStatus = document.getElementById('status-deepseek');
@@ -163,6 +202,30 @@ async function updateProviderStatuses() {
         dsStatus.innerHTML = '<div class="status-dot"></div> Не активно';
     }
   }
+  updateCurrentProviderCard();
+}
+
+function updateCurrentProviderCard() {
+  const name = document.getElementById('provider-current-name');
+  const model = document.getElementById('provider-current-model');
+  const status = document.getElementById('provider-current-status');
+  if (!name || !model || !status) return;
+  const provider = settings.AI_PROVIDER || 'mock';
+  const labels = { openrouter: 'OpenRouter', deepseek: 'DeepSeek Direct', mock: 'Mock Offline' };
+  const modelValue = provider === 'openrouter'
+    ? (settings.OPENROUTER_MODEL || 'deepseek/deepseek-chat')
+    : provider === 'deepseek'
+      ? (settings.DEEPSEEK_MODEL || 'deepseek-chat')
+      : 'mock-response';
+  const active = provider === 'openrouter'
+    ? isOn(settings.OPENROUTER_ENABLED)
+    : provider === 'deepseek'
+      ? isOn(settings.DEEPSEEK_ENABLED)
+      : true;
+  name.textContent = labels[provider] || provider;
+  model.textContent = 'Модель: ' + modelValue;
+  status.className = 'status-badge' + (active ? ' active' : '');
+  status.innerHTML = '<div class="status-dot"></div> ' + (active ? 'Подключено' : 'Не активно');
 }
 
 function setStatus(id, active, label) {
@@ -181,6 +244,11 @@ async function updateIntegrationStatuses() {
   setStatus('status-telegram', isOn(settings.TELEGRAM_ENABLED), isOn(settings.TELEGRAM_ENABLED) ? 'Активен' : 'Выключен');
   setStatus('status-vk', isOn(settings.VK_ENABLED), isOn(settings.VK_ENABLED) ? 'Активен' : 'Выключен');
   setStatus('status-webchat', isOn(settings.WEBCHAT_ENABLED), isOn(settings.WEBCHAT_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-integr-smtp', isOn(settings.SMTP_ENABLED), isOn(settings.SMTP_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-integr-supabase', isConfigured(settings.SUPABASE_URL), isConfigured(settings.SUPABASE_URL) ? 'Настроено' : 'Не настроено');
+  setStatus('status-integr-telegram', isOn(settings.TELEGRAM_ENABLED), isOn(settings.TELEGRAM_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-integr-vk', isOn(settings.VK_ENABLED), isOn(settings.VK_ENABLED) ? 'Активен' : 'Выключен');
+  setStatus('status-integr-webchat', isOn(settings.WEBCHAT_ENABLED), isOn(settings.WEBCHAT_ENABLED) ? 'Активен' : 'Выключен');
 }
 
 // --- Integration Config ---
@@ -423,6 +491,11 @@ function showTestResult(scope, ok, msg) {
   const id = scope === 'integration' ? 'integration-test-result' : 'provider-test-result';
   const el = document.getElementById(id);
   if (!el) return;
+  renderProviderTestResult(el, ok, msg);
+}
+
+function renderProviderTestResult(el, ok, msg) {
+  if (!el) return;
   el.style.display = 'block';
   el.style.color = ok ? 'var(--success)' : 'var(--danger)';
   el.textContent = (ok ? '✓ ' : '✗ ') + msg;
@@ -462,11 +535,9 @@ function openProviderConfig(provider) {
           <option value="deepseek/deepseek-chat">DeepSeek Chat (deepseek/deepseek-chat)</option>
           <option value="deepseek/deepseek-r1">DeepSeek R1 (deepseek/deepseek-r1)</option>
           <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (google/gemini-2.5-pro)</option>
-          <option value="google/gemini-3.5-flash">Gemini Flash (google/gemini-3.5-flash)</option>
+          <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (google/gemini-2.5-flash)</option>
           <option value="openai/gpt-chat-latest">OpenAI GPT Chat Latest (openai/gpt-chat-latest)</option>
-          <option value="openai/gpt-oss-120b">OpenAI GPT OSS 120B (openai/gpt-oss-120b)</option>
           <option value="anthropic/claude-sonnet-4">Claude Sonnet (anthropic/claude-sonnet-4)</option>
-          <option value="anthropic/claude-opus-4.8">Claude Opus (anthropic/claude-opus-4.8)</option>
           <option value="openrouter/auto">OpenRouter Auto (openrouter/auto)</option>
         </select>
       </div>
@@ -534,6 +605,21 @@ async function testProviderConnection() {
     body: JSON.stringify({ provider: activeProviderConfig })
   });
   showTestResult('provider', res.success, res.success ? 'Подключение успешно' : (res.error || 'ошибка'));
+}
+
+async function testCurrentProviderConnection() {
+  const resultEl = document.getElementById('current-provider-test-result');
+  if (resultEl) {
+    resultEl.style.display = 'block';
+    resultEl.style.color = 'var(--muted)';
+    resultEl.textContent = 'Проверяем...';
+  }
+  const provider = settings.AI_PROVIDER || 'mock';
+  const res = await apiFetch('/ai/test', {
+    method: 'POST',
+    body: JSON.stringify({ provider })
+  });
+  renderProviderTestResult(resultEl, res.success, res.success ? 'Подключение успешно' : (res.error || 'ошибка'));
 }
 
 
@@ -628,8 +714,23 @@ window.loadConversations = loadConversations;
 
 function renderConvList() {
   const container = document.getElementById('conv-list-container');
-  const items = allConversations.filter(convMatchesFilter);
-  if (!items.length) { container.innerHTML = '<div class="empty">Нет диалогов</div>'; return; }
+  const query = (document.getElementById('conv-search')?.value || '').trim().toLowerCase();
+  const items = allConversations
+    .filter(convMatchesFilter)
+    .filter(c => {
+      if (!query) return true;
+      return [
+        c.guestName,
+        c.lastMessagePreview,
+        c.channel,
+        c.status,
+        c.linkedLeadId
+      ].some(value => String(value || '').toLowerCase().includes(query));
+    });
+  if (!items.length) {
+    container.innerHTML = '<div class="empty empty-rich"><b>Диалогов по фильтру нет</b><span>Измените статус, очистите поиск или дождитесь нового обращения гостя.</span></div>';
+    return;
+  }
   container.innerHTML = items.map(c => `
     <div class="conv-item ${currentConversationId === c.id ? 'active' : ''}" onclick="openConversation('${encodeURIComponent(c.id)}')">
       <div class="conv-item-top">
@@ -663,6 +764,7 @@ async function openConversation(encId) {
   document.getElementById('btn-takeover').disabled = closed || conv.manualMode === true;
   document.getElementById('btn-return').disabled = closed || conv.manualMode !== true;
   document.getElementById('btn-close').disabled = closed;
+  renderConversationContext(conv);
 
   const sub = document.getElementById('chat-subbar');
   let subHtml = `<span class="sub-chip">Канал: ${escapeHtml(conv.channel || '—')}</span>`;
@@ -686,6 +788,32 @@ async function openConversation(encId) {
   configureReplyArea(conv);
 }
 window.openConversation = openConversation;
+
+function renderConversationContext(conv) {
+  const context = document.getElementById('conversation-context');
+  if (!context) return;
+  const closed = conv.status === 'closed';
+  context.innerHTML = `
+    <div class="context-card">
+      <div class="context-title">Карточка диалога</div>
+      <div class="context-row"><span>Канал</span><b>${escapeHtml(conv.channel || '—')}</b></div>
+      <div class="context-row"><span>Гость</span><b>${escapeHtml(conv.guestName || 'Гость')}</b></div>
+      <div class="context-row"><span>Статус</span>${statusBadge(conv.status)}</div>
+      <div class="context-row"><span>Режим</span><b>${conv.manualMode ? 'Оператор' : 'ИИ'}</b></div>
+      ${conv.linkedLeadId ? `<div class="context-row"><span>Заявка</span><b>${escapeHtml(conv.linkedLeadId)}</b></div>` : ''}
+    </div>
+    <div class="context-card">
+      <div class="context-title">AI-резюме</div>
+      <p class="context-summary">${escapeHtml(conv.aiSummary || 'Резюме появится после накопления контекста диалога.')}</p>
+    </div>
+    <div class="context-card">
+      <div class="context-title">Действия</div>
+      <button class="btn btn-secondary context-action" onclick="opAction('take-over')" ${closed || conv.manualMode === true ? 'disabled' : ''}>Взять на себя</button>
+      <button class="btn btn-secondary context-action" onclick="opAction('return-to-ai')" ${closed || conv.manualMode !== true ? 'disabled' : ''}>Вернуть ИИ</button>
+      <button class="btn btn-secondary context-action danger" onclick="opAction('close')" ${closed ? 'disabled' : ''}>Закрыть</button>
+    </div>
+  `;
+}
 
 function configureReplyArea(conv) {
   const area = document.getElementById('chat-input-area');
@@ -983,6 +1111,15 @@ window.loadKnowledgeEntries = loadKnowledgeEntries;
 window.addKnowledgeEntry = addKnowledgeEntry;
 
 // --- Test Chat ---
+function useTestPrompt(text) {
+  const input = document.getElementById('test-input');
+  if (!input) return;
+  input.value = text;
+  input.focus();
+  sendTestMessage();
+}
+window.useTestPrompt = useTestPrompt;
+
 async function sendTestMessage() {
   const input = document.getElementById('test-input');
   const message = input.value.trim();

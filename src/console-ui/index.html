@@ -174,37 +174,47 @@
           </div>
         </div>
 
-        <div class="quick-actions">
-          <button class="btn btn-secondary quick-action" onclick="navTo('integrations')">
-            <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
-            Проверить каналы
-          </button>
-          <button class="btn btn-secondary quick-action" onclick="navTo('conversations')">
-            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            Открыть диалоги
-          </button>
-          <button class="btn btn-secondary quick-action" onclick="navTo('kb')">
-            <svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-            Обновить знания
-          </button>
-        </div>
-
         <div class="grid-2-1">
           <div>
-            <div class="section-title">Последние события</div>
-            <div class="events-list" id="dash-events">
+            <div class="section-title">Что требует внимания</div>
+            <div class="onboarding-list dashboard-card" id="dash-onboarding">
+              <!-- JS rendered -->
+            </div>
+
+            <div class="section-title section-spaced">Последние события</div>
+            <div class="events-list dashboard-card" id="dash-events">
               <div class="loading">Загрузка...</div>
             </div>
           </div>
           <div>
             <div class="section-title">Статус системы</div>
-            <div class="status-box" id="dash-status">
+            <div class="status-box dashboard-card" id="dash-status">
               <!-- JS rendered -->
             </div>
             
-            <div class="section-title" style="margin-top:24px;">Что требует внимания</div>
-            <div class="onboarding-list" id="dash-onboarding">
+            <div class="section-title section-spaced">Каналы</div>
+            <div class="status-box dashboard-card" id="dash-channels">
               <!-- JS rendered -->
+            </div>
+
+            <div class="section-title section-spaced">Быстрые действия</div>
+            <div class="quick-action-grid">
+              <button class="quick-action-card" onclick="navTo('conversations')">
+                <span class="quick-action-icon"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></span>
+                <span><b>Открыть диалоги</b><small>Очередь оператора</small></span>
+              </button>
+              <button class="quick-action-card" onclick="navTo('integrations')">
+                <span class="quick-action-icon"><svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg></span>
+                <span><b>Проверить каналы</b><small>Telegram, VK, WebChat</small></span>
+              </button>
+              <button class="quick-action-card" onclick="navTo('kb')">
+                <span class="quick-action-icon"><svg viewBox="0 0 24 24"><path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></span>
+                <span><b>Обновить базу знаний</b><small>Индекс и записи</small></span>
+              </button>
+              <button class="quick-action-card" onclick="navTo('ai-providers')">
+                <span class="quick-action-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></span>
+                <span><b>Проверить ИИ</b><small>Провайдер и модель</small></span>
+              </button>
             </div>
           </div>
         </div>
@@ -213,7 +223,23 @@
       <!-- AI PROVIDERS VIEW -->
       <div id="view-ai-providers" class="view hidden">
         <div class="page-header">
-          <div class="page-title">AI Провайдеры</div>
+          <div>
+            <div class="page-title">AI Провайдеры</div>
+            <div class="page-subtitle">Текущий движок ответов, модель и проверка связи</div>
+          </div>
+        </div>
+
+        <div class="provider-current-card">
+          <div>
+            <div class="provider-kicker">Текущий провайдер</div>
+            <div class="provider-current-title" id="provider-current-name">Загрузка...</div>
+            <div class="provider-current-model" id="provider-current-model">Модель: —</div>
+          </div>
+          <div class="provider-current-side">
+            <div id="provider-current-status" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+            <button class="btn btn-secondary" onclick="testCurrentProviderConnection()">Проверить связь</button>
+            <div id="current-provider-test-result" class="config-test-result"></div>
+          </div>
         </div>
         
         <div class="cards-grid">
@@ -270,9 +296,75 @@
       <!-- INTEGRATIONS VIEW -->
       <div id="view-integrations" class="view hidden">
         <div class="page-header">
-          <div class="page-title">Интеграции</div>
+          <div>
+            <div class="page-title">Интеграции</div>
+            <div class="page-subtitle">Каналы, данные и уведомления в одном рабочем обзоре</div>
+          </div>
         </div>
 
+        <div class="info-banner">
+          <b>Проверяйте подключения без изменения backend.</b>
+          <span>Отключенный канал показан спокойным статусом: это настройка, а не ошибка.</span>
+        </div>
+
+        <div class="integration-overview-grid">
+          <div class="app-card integration-card" onclick="navTo('ai-providers')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">OpenRouter</div>
+              <div class="app-card-desc">AI-провайдер и выбор модели для ответов консьержа</div>
+              <div id="status-integr-openrouter" class="status-badge"><div class="status-dot"></div> Проверка...</div>
+              <div class="card-meta">Последняя проверка: по запросу</div>
+            </div>
+          </div>
+          <div class="app-card integration-card" onclick="openIntegrationConfig('telegram')">
+            <div class="app-card-icon" style="background:rgba(42,171,238,.15)"><svg viewBox="0 0 24 24" fill="#2aabee"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">Telegram</div>
+              <div class="app-card-desc">Бот принимает вопросы гостей и уведомляет администраторов</div>
+              <div id="status-integr-telegram" class="status-badge"><div class="status-dot"></div> Загрузка...</div>
+              <div class="card-meta">Последняя проверка: ручной тест</div>
+            </div>
+          </div>
+          <div class="app-card integration-card" onclick="openIntegrationConfig('vk')">
+            <div class="app-card-icon" style="background:rgba(0,119,255,.12)"><svg viewBox="0 0 24 24" fill="#0077ff"><path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93v6.14C2 20.67 3.33 22 8.93 22h6.14C20.67 22 22 20.67 22 15.07V8.93C22 3.33 20.67 2 15.07 2zm2.95 13.5h-1.5c-.56 0-.73-.44-1.73-1.45-.87-.85-1.24-.96-1.46-.96-.3 0-.38.08-.38.5v1.32c0 .36-.11.57-1.05.57-1.55 0-3.27-.94-4.48-2.68C5.9 10.7 5.5 8.86 5.5 8.5c0-.22.08-.43.5-.43h1.5c.37 0 .51.17.65.57.72 2.07 1.93 3.88 2.43 3.88.19 0 .27-.09.27-.57V9.92c-.06-1.02-.6-1.1-.6-1.47 0-.18.15-.36.38-.36h2.36c.31 0 .43.17.43.53v2.86c0 .31.14.43.22.43.19 0 .35-.12.7-.47 1.08-1.2 1.85-3.05 1.85-3.05.1-.22.28-.43.65-.43h1.5c.45 0 .55.23.45.53-.19.88-2.05 3.5-2.05 3.5-.16.27-.22.38 0 .68.16.22.68.67 1.03 1.08.64.72 1.13 1.33 1.26 1.75.11.41-.1.62-.51.62z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">VK</div>
+              <div class="app-card-desc">Callback API для сообщений из группы ВКонтакте</div>
+              <div id="status-integr-vk" class="status-badge"><div class="status-dot"></div> Загрузка...</div>
+              <div class="card-meta">Последняя проверка: по webhook</div>
+            </div>
+          </div>
+          <div class="app-card integration-card" onclick="openIntegrationConfig('webchat')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">WebChat</div>
+              <div class="app-card-desc">Виджет для сайта отеля с ручными ответами оператора</div>
+              <div id="status-integr-webchat" class="status-badge"><div class="status-dot"></div> Загрузка...</div>
+              <div class="card-meta">Последняя проверка: origin и виджет</div>
+            </div>
+          </div>
+          <div class="app-card integration-card" onclick="openIntegrationConfig('supabase')">
+            <div class="app-card-icon" style="background:rgba(62,207,142,.12)"><svg viewBox="0 0 24 24" fill="#3ecf8e"><path d="M11.9 1.036c-.015-.986-1.26-1.41-1.874-.637L.764 11.217c-.542.696-.05 1.683.876 1.683H9.88l.112 10.065c.014.986 1.259 1.41 1.873.636l9.262-10.818c.542-.695.049-1.682-.877-1.682H12.01L11.9 1.036z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">Supabase</div>
+              <div class="app-card-desc">Синхронизация заявок и статусов с облачной базой</div>
+              <div id="status-integr-supabase" class="status-badge"><div class="status-dot"></div> Загрузка...</div>
+              <div class="card-meta">Последняя проверка: тест соединения</div>
+            </div>
+          </div>
+          <div class="app-card integration-card" onclick="openIntegrationConfig('smtp')">
+            <div class="app-card-icon"><svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></div>
+            <div class="app-card-content">
+              <div class="app-card-title">SMTP</div>
+              <div class="app-card-desc">Email-уведомления администраторам о заявках и ошибках</div>
+              <div id="status-integr-smtp" class="status-badge"><div class="status-dot"></div> Загрузка...</div>
+              <div class="card-meta">Последняя проверка: тестовое письмо</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title section-spaced">Детальные настройки</div>
         <div class="section-title">Мессенджеры</div>
         <div class="cards-grid" style="margin-bottom:24px;">
           <div class="app-card" onclick="openIntegrationConfig('telegram')">
@@ -373,8 +465,14 @@
       <!-- CONVERSATIONS VIEW -->
       <div id="view-conversations" class="view hidden">
         <div class="page-header">
-          <div class="page-title">Диалоги</div>
-          <button class="btn btn-secondary" onclick="loadConversations()">Обновить</button>
+          <div>
+            <div class="page-title">Диалоги</div>
+            <div class="page-subtitle">Рабочее место оператора: очередь, переписка и контекст гостя</div>
+          </div>
+          <div class="conv-toolbar-actions">
+            <input class="form-input conv-search" id="conv-search" placeholder="Поиск по гостю или сообщению..." oninput="renderConvList()">
+            <button class="btn btn-secondary" onclick="loadConversations()">Обновить</button>
+          </div>
         </div>
         <div class="conv-filters" id="conv-filters">
           <button class="conv-filter active" data-filter="all" onclick="setConvFilter('all')">Все</button>
@@ -383,7 +481,7 @@
           <button class="conv-filter" data-filter="ai" onclick="setConvFilter('ai')">ИИ отвечает</button>
           <button class="conv-filter" data-filter="closed" onclick="setConvFilter('closed')">Закрытые</button>
         </div>
-        <div class="grid-1-2">
+        <div class="grid-operator">
           <div class="conv-list" id="conv-list-container">
             <div class="loading">Загрузка диалогов...</div>
           </div>
@@ -407,6 +505,12 @@
               </div>
             </div>
           </div>
+          <aside class="conversation-context" id="conversation-context">
+            <div class="context-empty">
+              <b>Контекст диалога</b>
+              <span>Выберите диалог, чтобы увидеть канал, гостя, статус, AI-резюме и действия оператора.</span>
+            </div>
+          </aside>
         </div>
       </div>
 
@@ -555,6 +659,12 @@
             <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
             <div>Песочница: сообщения не уходят гостям и не создают заявок. Используется текущий AI-провайдер и база знаний.</div>
           </div>
+          <div class="quick-prompts">
+            <button onclick="useTestPrompt('Во сколько заезд?')">Во сколько заезд?</button>
+            <button onclick="useTestPrompt('Можно с собакой?')">Можно с собакой?</button>
+            <button onclick="useTestPrompt('Есть ли парковка?')">Есть ли парковка?</button>
+            <button onclick="useTestPrompt('Как добраться?')">Как добраться?</button>
+          </div>
           <div class="test-chat-card">
             <div id="test-messages" class="chat-messages test-chat-messages">
               <div class="msg msg-assistant"><div class="msg-text">Это тестовый чат. Здесь можно проверить, как ИИ отвечает на вопросы на основе базы знаний.</div></div>
@@ -585,7 +695,8 @@
             <div class="page-subtitle">Базовые параметры сервиса</div>
           </div>
         </div>
-        <div class="config-section">
+        <div class="settings-layout">
+        <div class="config-section settings-primary">
           <div class="form-group">
             <label class="form-label">Активный AI провайдер</label>
             <select class="form-input" id="setting-ai-provider">
@@ -601,71 +712,122 @@
           </div>
           <button class="btn" onclick="saveGeneralSettings()">Сохранить настройки</button>
         </div>
+        <div class="settings-side">
+          <div class="mini-panel">
+            <div class="mini-panel-title">Что влияет на работу</div>
+            <div class="setting-check-row"><span>AI провайдер</span><b id="settings-ai-provider-label">—</b></div>
+            <div class="setting-check-row"><span>Публичный URL</span><b id="settings-public-url-label">—</b></div>
+            <div class="setting-check-row"><span>Каналы</span><b>в интеграциях</b></div>
+          </div>
+          <div class="mini-panel warning-panel">
+            <div class="mini-panel-title">Безопасная зона</div>
+            <p>Эта страница меняет только общие параметры консоли. Токены каналов, SMTP и Supabase вынесены в «Интеграции».</p>
+          </div>
+        </div>
+        </div>
       </div>
 
       <!-- HOTEL PROFILE (placeholder) -->
       <div id="view-hotel-profile" class="view hidden">
         <div class="page-header"><div class="page-title">Профиль отеля</div></div>
-        <div class="placeholder-card">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg></div>
-          <h3>Профиль отеля</h3>
-          <p>Здесь появятся название, адрес, контакты и базовые данные отеля, которые ИИ сможет использовать в ответах.</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Профиль отеля</h3>
+            <p>Единый источник данных об объекте, который затем будет использоваться в ответах ИИ и виджете.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Основные данные</b><span>Название, адрес, телефоны, сайт.</span><button disabled>Редактировать</button></div>
+            <div class="placeholder-feature"><b>Правила проживания</b><span>Заезд, выезд, дети, питомцы.</span><button disabled>Настроить</button></div>
+            <div class="placeholder-feature"><b>Удобства</b><span>Парковка, Wi-Fi, завтраки, трансфер.</span><button disabled>Добавить</button></div>
+          </div>
         </div>
       </div>
 
       <!-- SYSTEM HEALTH (placeholder) -->
       <div id="view-system-health" class="view hidden">
         <div class="page-header"><div class="page-title">Системное здоровье</div></div>
-        <div class="placeholder-card">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M20.5 6c-2.61 0-4.83 1.67-5.64 4h-2.05C12 8.81 10.86 8 9.5 8 7.57 8 6 9.57 6 11.5S7.57 15 9.5 15c1.36 0 2.5-.81 3.31-2h2.05c.81 2.33 3.03 4 5.64 4 .17 0 .33-.01.5-.03v-9.94c-.17-.02-.33-.03-.5-.03z"/></svg></div>
-          <h3>Системное здоровье</h3>
-          <p>Здесь появится отдельный экран мониторинга: аптайм, состояние VPN, очереди и фоновых задач. Текущий статус интеграций доступен на «Главной».</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Системное здоровье</h3>
+            <p>Отдельный экран мониторинга без изменения текущих проверок и логов.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Аптайм сервиса</b><span>Состояние API, консоли и webhooks.</span><button disabled>Открыть</button></div>
+            <div class="placeholder-feature"><b>Очереди и задачи</b><span>Фоновые операции и ошибки доставки.</span><button disabled>Проверить</button></div>
+            <div class="placeholder-feature"><b>Интеграции</b><span>Сводка по Telegram, VK, SMTP, Supabase.</span><button disabled>Синхронизировать</button></div>
+          </div>
         </div>
       </div>
 
       <!-- USERS (placeholder) -->
       <div id="view-users" class="view hidden">
         <div class="page-header"><div class="page-title">Пользователи</div></div>
-        <div class="placeholder-card">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
-          <h3>Пользователи</h3>
-          <p>Управление учётными записями операторов и администраторов. Пока вход выполняется по токену доступа консоли.</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Пользователи</h3>
+            <p>Будущая панель доступа операторов. Сейчас вход остается по токену консоли.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Администраторы</b><span>Полный доступ к настройкам и интеграциям.</span><button disabled>Добавить</button></div>
+            <div class="placeholder-feature"><b>Операторы</b><span>Работа с диалогами и ручными ответами.</span><button disabled>Пригласить</button></div>
+            <div class="placeholder-feature"><b>История активности</b><span>Журнал действий внутри console.</span><button disabled>Открыть журнал</button></div>
+          </div>
         </div>
       </div>
 
       <!-- ROLES (placeholder) -->
       <div id="view-roles" class="view hidden">
         <div class="page-header"><div class="page-title">Роли</div></div>
-        <div class="placeholder-card">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></div>
-          <h3>Роли и доступы</h3>
-          <p>Разграничение прав (администратор / оператор / только просмотр). Ролевой модели пока нет на бэкенде.</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Роли и доступы</h3>
+            <p>Проект будущей ролевой модели без включения реальных ограничений в текущей версии.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Администратор</b><span>Настройки, интеграции, база знаний.</span><button disabled>Настроить</button></div>
+            <div class="placeholder-feature"><b>Оператор</b><span>Диалоги, заявки и быстрые ответы.</span><button disabled>Настроить</button></div>
+            <div class="placeholder-feature"><b>Только просмотр</b><span>Dashboard, логи и отчеты без действий.</span><button disabled>Настроить</button></div>
+          </div>
         </div>
       </div>
 
       <!-- SECURITY (placeholder) -->
       <div id="view-security" class="view hidden">
         <div class="page-header"><div class="page-title">Безопасность</div></div>
-        <div class="placeholder-card">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
-          <h3>Безопасность</h3>
-          <p>Здесь появятся настройки токенов доступа, журналы входов и ограничения по IP. Сейчас доступ защищён токеном консоли.</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Безопасность</h3>
+            <p>Планируемые настройки защиты console без изменения текущего механизма доступа.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Доступ к Console</b><span>Токен, срок действия и ротация.</span><button disabled>Открыть</button></div>
+            <div class="placeholder-feature"><b>Operator API Token</b><span>Отдельный доступ для операторских действий.</span><button disabled>Сгенерировать</button></div>
+            <div class="placeholder-feature"><b>Журнал входов</b><span>События авторизации и ошибки доступа.</span><button disabled>Посмотреть</button></div>
+            <div class="placeholder-feature"><b>Ограничение по IP</b><span>Allowlist для административной панели.</span><button disabled>Настроить</button></div>
+          </div>
         </div>
       </div>
 
       <!-- DANGER ZONE (placeholder, no destructive actions yet) -->
       <div id="view-danger-zone" class="view hidden">
         <div class="page-header"><div class="page-title">Опасная зона</div></div>
-        <div class="placeholder-card placeholder-danger">
-          <div class="ph-icon"><svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg></div>
-          <h3>Опасная зона</h3>
-          <p>Операции вроде сброса данных и переустановки появятся здесь только после готовности резервного копирования. Деструктивных действий пока нет — это безопасно.</p>
-          <span class="ph-soon">Будет добавлено позже</span>
+        <div class="product-placeholder placeholder-danger">
+          <div class="placeholder-head">
+            <span class="ph-soon">Скоро</span>
+            <h3>Опасная зона</h3>
+            <p>Деструктивных действий здесь нет. Будущие операции появятся только с подтверждениями и резервным копированием.</p>
+          </div>
+          <div class="placeholder-grid">
+            <div class="placeholder-feature"><b>Backup данных</b><span>Снимок настроек и базы знаний.</span><button disabled>Создать backup</button></div>
+            <div class="placeholder-feature"><b>Экспорт настроек</b><span>Выгрузка конфигурации без секретов.</span><button disabled>Экспортировать</button></div>
+            <div class="placeholder-feature"><b>Сброс тестовых данных</b><span>Очистка песочницы и тестовых диалогов.</span><button disabled>Сбросить</button></div>
+            <div class="placeholder-feature"><b>Архивирование</b><span>Закрытие старых записей и логов.</span><button disabled>Архивировать</button></div>
+          </div>
         </div>
       </div>
 
