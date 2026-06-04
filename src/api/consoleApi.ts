@@ -241,6 +241,20 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
 
     WEBCHAT_ENABLED: config.webchat.enabled,
     WEBCHAT_ALLOWED_ORIGINS: config.webchat.allowedOrigins,
+
+    hotelName: config.hotelProfile.hotelName,
+    address: config.hotelProfile.address,
+    city: config.hotelProfile.city,
+    phone: config.hotelProfile.phone,
+    email: config.hotelProfile.email,
+    website: config.hotelProfile.website,
+    checkInTime: config.hotelProfile.checkInTime,
+    checkOutTime: config.hotelProfile.checkOutTime,
+    parkingInfo: config.hotelProfile.parkingInfo,
+    wifiInfo: config.hotelProfile.wifiInfo,
+    breakfastInfo: config.hotelProfile.breakfastInfo,
+    petsPolicy: config.hotelProfile.petsPolicy,
+    shortDescription: config.hotelProfile.shortDescription,
   };
 
   res.json(maskedSettings);
@@ -249,9 +263,14 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
 consoleRouter.post('/settings', (req: Request, res: Response) => {
   const newSettings = req.body;
   saveSettings(newSettings);
-  
-  supabaseWriter.reinitialize();
-  smtpService.reinitialize();
+
+  const changedKeys = new Set(Object.keys(newSettings || {}));
+  if (['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_LEADS_TABLE'].some(key => changedKeys.has(key))) {
+    supabaseWriter.reinitialize();
+  }
+  if (['SMTP_ENABLED', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM_NAME', 'SMTP_FROM_EMAIL', 'ADMIN_NOTIFICATION_EMAIL'].some(key => changedKeys.has(key))) {
+    smtpService.reinitialize();
+  }
   
   res.json({ success: true });
 });

@@ -22,7 +22,7 @@ function navTo(viewId) {
   if (viewId === 'leads') loadLeads();
   if (viewId === 'kb') loadKBStatus();
   if (viewId === 'logs') loadLogs();
-  if (viewId === 'settings' || viewId === 'ai-providers' || viewId === 'integrations') loadSettings();
+  if (viewId === 'settings' || viewId === 'ai-providers' || viewId === 'integrations' || viewId === 'hotel-profile') loadSettings();
 }
 
 // Ensure navTo is available globally for inline onclick
@@ -173,6 +173,88 @@ function updateSettingsSummary() {
   const publicUrlLabel = document.getElementById('settings-public-url-label');
   if (providerLabel) providerLabel.textContent = settings.AI_PROVIDER || 'не выбран';
   if (publicUrlLabel) publicUrlLabel.textContent = settings.PUBLIC_BASE_URL ? 'задан' : 'не задан';
+  renderHotelProfile();
+}
+
+const HOTEL_PROFILE_FIELDS = [
+  'hotelName',
+  'address',
+  'city',
+  'phone',
+  'email',
+  'website',
+  'checkInTime',
+  'checkOutTime',
+  'parkingInfo',
+  'wifiInfo',
+  'breakfastInfo',
+  'petsPolicy',
+  'shortDescription'
+];
+
+function hotelValue(key) {
+  const value = settings[key];
+  return value == null || value === '' ? '—' : String(value);
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function renderHotelProfile() {
+  if (!document.getElementById('hotel-profile-view')) return;
+  setText('hotel-profile-name', hotelValue('hotelName'));
+  setText('hotel-profile-description', hotelValue('shortDescription'));
+  setText('hotel-profile-address', hotelValue('address'));
+  setText('hotel-profile-city', hotelValue('city'));
+  setText('hotel-profile-phone', hotelValue('phone'));
+  setText('hotel-profile-email', hotelValue('email'));
+  setText('hotel-profile-website', hotelValue('website'));
+  setText('hotel-profile-checkin', hotelValue('checkInTime'));
+  setText('hotel-profile-checkout', hotelValue('checkOutTime'));
+  setText('hotel-profile-parking', hotelValue('parkingInfo'));
+  setText('hotel-profile-wifi', hotelValue('wifiInfo'));
+  setText('hotel-profile-breakfast', hotelValue('breakfastInfo'));
+  setText('hotel-profile-pets', hotelValue('petsPolicy'));
+}
+
+function fillHotelProfileForm() {
+  HOTEL_PROFILE_FIELDS.forEach(key => {
+    const el = document.getElementById(key);
+    if (el) el.value = settings[key] || '';
+  });
+}
+
+function editHotelProfile() {
+  fillHotelProfileForm();
+  document.getElementById('hotel-profile-view')?.classList.add('hidden');
+  document.getElementById('hotel-profile-form')?.classList.remove('hidden');
+  const result = document.getElementById('hotel-profile-result');
+  if (result) result.textContent = '';
+}
+
+function cancelHotelProfileEdit() {
+  document.getElementById('hotel-profile-form')?.classList.add('hidden');
+  document.getElementById('hotel-profile-view')?.classList.remove('hidden');
+}
+
+async function saveHotelProfile(event) {
+  event.preventDefault();
+  const update = {};
+  HOTEL_PROFILE_FIELDS.forEach(key => {
+    update[key] = document.getElementById(key)?.value || '';
+  });
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
+  settings = await apiFetch('/settings');
+  renderHotelProfile();
+  cancelHotelProfileEdit();
+  const result = document.getElementById('hotel-profile-result');
+  if (result) {
+    result.style.display = 'block';
+    result.style.color = 'var(--success)';
+    result.textContent = '✓ Профиль сохранён';
+  }
 }
 
 async function updateProviderStatuses() {

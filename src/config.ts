@@ -62,7 +62,7 @@ function resolveConfig(envKey: string, fallbackEnvs: string[] = [], defaultValue
 
 export const config = {
   port: process.env.PORT || 3010,
-  publicBaseUrl: process.env.PUBLIC_BASE_URL || 'http://localhost:3010',
+  publicBaseUrl: resolveConfig('PUBLIC_BASE_URL', [], process.env.PUBLIC_BASE_URL || 'http://localhost:3010'),
   devUiEnabled: process.env.DEV_UI_ENABLED === 'true',
   consoleEnabled: process.env.CONSOLE_ENABLED === 'true',
   consoleToken: process.env.CONSOLE_ACCESS_TOKEN || '',
@@ -128,6 +128,22 @@ export const config = {
     allowedOrigins: resolveConfig('WEBCHAT_ALLOWED_ORIGINS', [], 'https://ai.4-am.ru,http://localhost:3010'),
     publicPath: resolveConfig('WEBCHAT_PUBLIC_PATH', [], '/widget.js')
   },
+
+  hotelProfile: {
+    hotelName: resolveConfig('hotelName'),
+    address: resolveConfig('address'),
+    city: resolveConfig('city'),
+    phone: resolveConfig('phone'),
+    email: resolveConfig('email'),
+    website: resolveConfig('website'),
+    checkInTime: resolveConfig('checkInTime'),
+    checkOutTime: resolveConfig('checkOutTime'),
+    parkingInfo: resolveConfig('parkingInfo'),
+    wifiInfo: resolveConfig('wifiInfo'),
+    breakfastInfo: resolveConfig('breakfastInfo'),
+    petsPolicy: resolveConfig('petsPolicy'),
+    shortDescription: resolveConfig('shortDescription'),
+  },
   
   logLevel: process.env.LOG_LEVEL || 'info',
 };
@@ -139,10 +155,10 @@ export function saveSettings(newSettings: any) {
   }
   
   for (const [key, val] of Object.entries(newSettings)) {
-    if (isValidValue(val)) {
-      runtimeOverride[key] = val;
-    } else if (val === '' || val === null) {
+    if (val === '' || val === null) {
       delete runtimeOverride[key];
+    } else if (isValidValue(val)) {
+      runtimeOverride[key] = val;
     }
   }
   
@@ -151,6 +167,8 @@ export function saveSettings(newSettings: any) {
 }
 
 function refreshConfig() {
+  config.publicBaseUrl = resolveConfig('PUBLIC_BASE_URL', [], process.env.PUBLIC_BASE_URL || 'http://localhost:3010');
+
   config.supabase.url = resolveConfig('SUPABASE_URL');
   config.supabase.serviceRoleKey = resolveConfig('SUPABASE_SERVICE_ROLE_KEY');
   config.supabase.leadsTable = resolveConfig('SUPABASE_LEADS_TABLE', [], 'leads');
@@ -191,6 +209,20 @@ function refreshConfig() {
 
   config.webchat.enabled = resolveConfig('WEBCHAT_ENABLED') === 'true';
   config.webchat.allowedOrigins = resolveConfig('WEBCHAT_ALLOWED_ORIGINS', [], 'https://ai.4-am.ru,http://localhost:3010');
+
+  config.hotelProfile.hotelName = resolveConfig('hotelName');
+  config.hotelProfile.address = resolveConfig('address');
+  config.hotelProfile.city = resolveConfig('city');
+  config.hotelProfile.phone = resolveConfig('phone');
+  config.hotelProfile.email = resolveConfig('email');
+  config.hotelProfile.website = resolveConfig('website');
+  config.hotelProfile.checkInTime = resolveConfig('checkInTime');
+  config.hotelProfile.checkOutTime = resolveConfig('checkOutTime');
+  config.hotelProfile.parkingInfo = resolveConfig('parkingInfo');
+  config.hotelProfile.wifiInfo = resolveConfig('wifiInfo');
+  config.hotelProfile.breakfastInfo = resolveConfig('breakfastInfo');
+  config.hotelProfile.petsPolicy = resolveConfig('petsPolicy');
+  config.hotelProfile.shortDescription = resolveConfig('shortDescription');
 }
 
 export const saveDevConfig = saveSettings;
