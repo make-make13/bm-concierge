@@ -201,6 +201,7 @@ consoleRouter.get('/dashboard', (req: Request, res: Response) => {
 consoleRouter.get('/settings', (req: Request, res: Response) => {
   const maskedSettings: any = {
     AI_PROVIDER: config.aiProvider,
+    AI_PERSONA: config.aiPersona,
     OPENROUTER_ENABLED: config.openRouter.enabled,
     OPENROUTER_MODEL: config.openRouter.model,
     OPENROUTER_BASE_URL: config.openRouter.baseUrl,

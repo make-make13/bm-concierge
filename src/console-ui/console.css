@@ -1903,6 +1903,47 @@ select.form-input {
   }
 }
 
+/* AI Providers — editable agent persona (character) */
+.persona-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.persona-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.persona-title {
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+.persona-textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.persona-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.persona-note {
+  margin-top: 10px;
+}
+
 /* ============================================================= */
 /* Console V2 — Match reference pass 2                           */
 /* ============================================================= */

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>БМ Консьерж</title>
-  <link rel="stylesheet" href="/console/console.css?v=15">
+  <link rel="stylesheet" href="/console/console.css?v=17">
 </head>
 <body>
   
@@ -215,7 +215,23 @@
             <div id="current-provider-test-result" class="config-test-result"></div>
           </div>
         </div>
-        
+
+        <div class="persona-card">
+          <div class="persona-head">
+            <div>
+              <div class="provider-kicker">Характер агента</div>
+              <div class="persona-title">Как ассистент общается с гостями (тон, личность)</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="resetAgentPersona()">Сбросить к стандартному</button>
+          </div>
+          <textarea class="form-input persona-textarea" id="cfg-ai-persona" maxlength="2000" placeholder="Например: Ты — приветливый онлайн-консьерж бутик-отеля. Отвечай тепло, кратко и по-человечески..."></textarea>
+          <div class="persona-foot">
+            <button class="btn" onclick="saveAgentPersona()">Сохранить характер</button>
+            <span id="persona-save-result" class="form-desc"></span>
+          </div>
+          <div class="form-desc persona-note">🔒 Правила-предохранители (отвечать только по базе знаний, не подтверждать брони, не называть цены, не использовать WhatsApp, не публиковать контакты администратора) применяются автоматически и здесь не редактируются.</div>
+        </div>
+
         <div class="cards-grid">
           <!-- OpenRouter -->
           <div class="app-card" onclick="openProviderConfig('openrouter')">
@@ -801,6 +817,6 @@
     </div>
   </div>
 
-  <script src="/console/console.js?v=16"></script>
+  <script src="/console/console.js?v=17"></script>
 </body>
 </html>

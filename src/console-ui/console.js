@@ -166,7 +166,32 @@ async function loadSettings() {
   // Update provider statuses
   updateProviderStatuses();
   updateIntegrationStatuses();
+
+  // Agent persona (character)
+  const personaEl = document.getElementById('cfg-ai-persona');
+  if (personaEl && typeof settings.AI_PERSONA === 'string') personaEl.value = settings.AI_PERSONA;
 }
+
+async function saveAgentPersona() {
+  const el = document.getElementById('cfg-ai-persona');
+  if (!el) return;
+  const value = el.value.trim();
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify({ AI_PERSONA: value }) });
+  settings = await apiFetch('/settings');
+  if (typeof settings.AI_PERSONA === 'string') el.value = settings.AI_PERSONA;
+  setKbMessage('persona-save-result', value ? 'Характер сохранён' : 'Сброшено к стандартному', true);
+}
+window.saveAgentPersona = saveAgentPersona;
+
+async function resetAgentPersona() {
+  // Пустое значение -> backend удаляет ключ -> возвращается стандартный характер
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify({ AI_PERSONA: '' }) });
+  settings = await apiFetch('/settings');
+  const el = document.getElementById('cfg-ai-persona');
+  if (el && typeof settings.AI_PERSONA === 'string') el.value = settings.AI_PERSONA;
+  setKbMessage('persona-save-result', 'Сброшено к стандартному', true);
+}
+window.resetAgentPersona = resetAgentPersona;
 
 function updateSettingsSummary() {
   const providerLabel = document.getElementById('settings-ai-provider-label');

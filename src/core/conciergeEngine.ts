@@ -1,9 +1,10 @@
 import { searchEngine } from '../rag/search';
 import { AIProviderFactory } from '../ai/aiProviderFactory';
+import { config, DEFAULT_AI_PERSONA } from '../config';
 
-const SYSTEM_PROMPT = `Ты — онлайн-консьерж бутик-отеля «Большая Медведица» в Териберке.
-Отвечай приветливо и по-человечески.
-Отвечай только на основе переданных фрагментов базы знаний.
+// Правила-предохранители. НЕ редактируются из Console — применяются всегда,
+// поверх настраиваемого «характера» агента (config.aiPersona).
+const SAFETY_RULES = `Отвечай только на основе переданных фрагментов базы знаний.
 Если точной информации нет — не придумывай, предложи уточнить у администратора.
 Не подтверждай бронирование, не обещай наличие номеров и не называй цены.
 Если гость хочет забронировать номер (например, спрашивает про даты, вид на море, цену), отвечай примерно так:
@@ -28,8 +29,10 @@ export class ConciergeEngine {
       };
     }
 
-    // Динамически добавляем обращение по имени, если применимо
-    const dynamicPrompt = SYSTEM_PROMPT + `\nИмя текущего гостя: ${guestName}. Если уместно, обращайся по имени.`;
+    // Характер агента (редактируется из Console), затем неизменяемые правила,
+    // затем динамическое обращение по имени.
+    const persona = (config.aiPersona && config.aiPersona.trim()) ? config.aiPersona.trim() : DEFAULT_AI_PERSONA;
+    const dynamicPrompt = `${persona}\n${SAFETY_RULES}\nИмя текущего гостя: ${guestName}. Если уместно, обращайся по имени.`;
 
     try {
       return await provider.generateReply(message, contextChunks, dynamicPrompt, history);

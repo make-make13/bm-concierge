@@ -60,6 +60,11 @@ function resolveConfig(envKey: string, fallbackEnvs: string[] = [], defaultValue
   return defaultValue;
 }
 
+// Характер/персона агента по умолчанию (редактируется из Console через ключ AI_PERSONA).
+// Только тон и личность — правила-предохранители живут в conciergeEngine и применяются всегда.
+export const DEFAULT_AI_PERSONA = `Ты — онлайн-консьерж бутик-отеля «Большая Медведица» в Териберке.
+Отвечай приветливо и по-человечески.`;
+
 export const config = {
   port: process.env.PORT || 3010,
   publicBaseUrl: resolveConfig('PUBLIC_BASE_URL', [], process.env.PUBLIC_BASE_URL || 'http://localhost:3010'),
@@ -78,7 +83,10 @@ export const config = {
   },
   
   aiProvider: resolveConfig('AI_PROVIDER', [], 'mock'),
-  
+
+  // Характер агента (тон/личность). Редактируется из Console. Предохранители — отдельно и всегда.
+  aiPersona: resolveConfig('AI_PERSONA', [], DEFAULT_AI_PERSONA),
+
   openRouter: {
     enabled: resolveConfig('OPENROUTER_ENABLED') === 'true',
     apiKey: resolveConfig('OPENROUTER_API_KEY'),
@@ -174,7 +182,8 @@ function refreshConfig() {
   config.supabase.leadsTable = resolveConfig('SUPABASE_LEADS_TABLE', [], 'leads');
   
   config.aiProvider = resolveConfig('AI_PROVIDER', [], 'mock');
-  
+  config.aiPersona = resolveConfig('AI_PERSONA', [], DEFAULT_AI_PERSONA);
+
   config.openRouter.enabled = resolveConfig('OPENROUTER_ENABLED') === 'true';
   config.openRouter.apiKey = resolveConfig('OPENROUTER_API_KEY');
   config.openRouter.baseUrl = resolveConfig('OPENROUTER_BASE_URL', [], 'https://openrouter.ai/api/v1');
