@@ -992,7 +992,52 @@ async function loadKBStatus() {
   `;
   await loadEditableKB();
   await loadKnowledgeEntries();
+  await loadKnowledgeChunks();
 }
+
+let kbLoadedFilesPopulated = false;
+async function loadKnowledgeChunks() {
+  const fileSel = document.getElementById('kb-loaded-file');
+  const searchEl = document.getElementById('kb-loaded-search');
+  const list = document.getElementById('kb-loaded-list');
+  if (!list) return;
+
+  const params = new URLSearchParams();
+  if (fileSel && fileSel.value) params.set('file', fileSel.value);
+  if (searchEl && searchEl.value.trim()) params.set('q', searchEl.value.trim());
+  const qs = params.toString();
+
+  const data = await apiFetch('/kb/loaded' + (qs ? '?' + qs : ''));
+  if (!data || data.error) { list.innerHTML = '<div class="empty">Не удалось загрузить</div>'; return; }
+
+  // populate file filter once
+  if (fileSel && !kbLoadedFilesPopulated && Array.isArray(data.files)) {
+    data.files.forEach(f => {
+      const o = document.createElement('option');
+      o.value = f.name;
+      o.textContent = f.name + ' (' + f.count + ')';
+      fileSel.appendChild(o);
+    });
+    kbLoadedFilesPopulated = true;
+  }
+
+  const chunks = data.chunks || [];
+  if (!chunks.length) {
+    list.innerHTML = '<div class="empty">Ничего не загружено или не найдено</div>';
+    return;
+  }
+  list.innerHTML = chunks.map(c => `
+    <div class="kb-chunk-card">
+      <div class="kb-chunk-head">
+        <span class="kb-chunk-title">${escapeHtml(c.title || '(без заголовка)')}</span>
+        ${c.category ? `<span class="conv-badge badge-ai">${escapeHtml(c.category)}</span>` : ''}
+        <span class="kb-chunk-file">${escapeHtml(c.sourceFile)}</span>
+      </div>
+      <pre class="kb-chunk-text">${escapeHtml(c.text)}</pre>
+    </div>
+  `).join('');
+}
+window.loadKnowledgeChunks = loadKnowledgeChunks;
 
 async function reloadKB() {
   const res = await apiFetch('/kb/reload', { method: 'POST' });

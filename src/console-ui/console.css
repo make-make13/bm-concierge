@@ -1805,6 +1805,104 @@ select.form-input {
   max-width: 640px;
 }
 
+/* KB — read-only browser of everything loaded (what the AI sees) */
+.kb-loaded {
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 12px 14px;
+}
+
+.kb-loaded > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kb-loaded > summary::-webkit-details-marker { display: none; }
+
+.kb-loaded > summary::before {
+  content: "▸";
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+.kb-loaded[open] > summary::before { transform: rotate(90deg); }
+
+.kb-loaded-hint {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.kb-loaded-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 14px 0;
+}
+
+.kb-loaded-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.kb-chunk-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 12px 14px;
+}
+
+.kb-chunk-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.kb-chunk-title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.kb-chunk-file {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.kb-chunk-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-height: 220px;
+  overflow-y: auto;
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+@media (max-width: 860px) {
+  .kb-loaded-toolbar {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ============================================================= */
 /* Console V2 — Match reference pass 2                           */
 /* ============================================================= */

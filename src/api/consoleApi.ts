@@ -446,6 +446,34 @@ consoleRouter.get('/kb/status', (req: Request, res: Response) => {
   res.json(indexer.getStatus());
 });
 
+// Read-only browser of everything the AI actually has loaded (all chunks from
+// all knowledge files, not just the editable console_kb.md). No writes.
+consoleRouter.get('/kb/loaded', (req: Request, res: Response) => {
+  try {
+    const file = String(req.query.file || '').trim();
+    const q = String(req.query.q || '').trim().toLowerCase();
+
+    const allChunks = indexer.getChunks();
+    const fileMap = new Map<string, number>();
+    allChunks.forEach((c) => fileMap.set(c.sourceFile, (fileMap.get(c.sourceFile) || 0) + 1));
+    const files = Array.from(fileMap.entries()).map(([name, count]) => ({ name, count }));
+
+    let chunks = allChunks.map((c, index) => ({
+      index,
+      sourceFile: c.sourceFile,
+      category: c.category || '',
+      title: c.title || '',
+      text: c.text
+    }));
+    if (file) chunks = chunks.filter((c) => c.sourceFile === file);
+    if (q) chunks = chunks.filter((c) => `${c.title}\n${c.category}\n${c.text}`.toLowerCase().includes(q));
+
+    res.json({ chunks, files, total: chunks.length, totalAll: allChunks.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 consoleRouter.get('/kb/editable', (req: Request, res: Response) => {
   try {
     ensureEditableKnowledgeFile();

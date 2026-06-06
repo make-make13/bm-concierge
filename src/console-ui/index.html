@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>БМ Консьерж</title>
-  <link rel="stylesheet" href="/console/console.css?v=14">
+  <link rel="stylesheet" href="/console/console.css?v=15">
 </head>
 <body>
   
@@ -520,6 +520,18 @@
 
         <div class="status-box" id="kb-status-info" style="margin-bottom:20px;"></div>
 
+        <details class="kb-loaded" id="kb-loaded-block" open>
+          <summary><span class="section-title" style="margin:0; display:inline-flex;">Загруженные данные <span class="kb-loaded-hint">— всё, что видит ИИ</span></span></summary>
+          <div class="kb-loaded-toolbar">
+            <select class="form-input" id="kb-loaded-file" onchange="loadKnowledgeChunks()">
+              <option value="">Все файлы</option>
+            </select>
+            <input class="form-input" id="kb-loaded-search" placeholder="Поиск по загруженным данным..." onkeydown="if(event.key==='Enter') loadKnowledgeChunks()">
+            <button class="btn btn-secondary" onclick="loadKnowledgeChunks()">Найти</button>
+          </div>
+          <div id="kb-loaded-list" class="kb-loaded-list"><div class="loading">Загрузка...</div></div>
+        </details>
+
         <div class="kb-toolbar">
           <div class="segmented">
             <button class="segment active" id="kb-source-all" onclick="setKnowledgeSource('')">Все</button>
@@ -789,6 +801,6 @@
     </div>
   </div>
 
-  <script src="/console/console.js?v=14"></script>
+  <script src="/console/console.js?v=15"></script>
 </body>
 </html>
