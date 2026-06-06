@@ -164,7 +164,7 @@
         <span id="bm-chat-close">&times;</span>
       </div>
       <div id="bm-chat-messages">
-        <div class="bm-msg bm-msg-assistant">Здравствуйте! Я — онлайн-консьерж бутик-отеля «Большая Медведица». Чем могу помочь?</div>
+        <div class="bm-msg bm-msg-assistant" id="bm-greeting">Здравствуйте! Я — онлайн-консьерж бутик-отеля «Большая Медведица». Чем могу помочь?</div>
       </div>
       <div id="bm-chat-input-container">
         <input type="text" id="bm-chat-input" placeholder="Введите сообщение..." />
@@ -177,6 +177,19 @@
   `;
   
   document.body.appendChild(widgetContainer);
+
+  // Подтягиваем настраиваемое приветствие из Console (если задано); иначе остаётся текст по умолчанию.
+  try {
+    fetch(`${window.location.origin}/api/chat/web/config`)
+      .then(function (r) { return r.json(); })
+      .then(function (cfg) {
+        if (cfg && cfg.greeting) {
+          var g = document.getElementById('bm-greeting');
+          if (g) g.textContent = cfg.greeting;
+        }
+      })
+      .catch(function () {});
+  } catch (e) {}
 
   // Logic
   const button = document.getElementById('bm-chat-button');

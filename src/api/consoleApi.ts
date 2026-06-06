@@ -202,6 +202,7 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
   const maskedSettings: any = {
     AI_PROVIDER: config.aiProvider,
     AI_PERSONA: config.aiPersona,
+    AI_GREETING: config.aiGreeting,
     OPENROUTER_ENABLED: config.openRouter.enabled,
     OPENROUTER_MODEL: config.openRouter.model,
     OPENROUTER_BASE_URL: config.openRouter.baseUrl,

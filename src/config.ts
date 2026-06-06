@@ -65,6 +65,9 @@ function resolveConfig(envKey: string, fallbackEnvs: string[] = [], defaultValue
 export const DEFAULT_AI_PERSONA = `Ты — онлайн-консьерж бутик-отеля «Большая Медведица» в Териберке.
 Отвечай приветливо и по-человечески.`;
 
+// Первое сообщение гостю (Telegram /start, первый пузырь в веб-виджете). Редактируется из Console (AI_GREETING).
+export const DEFAULT_AI_GREETING = 'Здравствуйте! Я — онлайн-консьерж бутик-отеля «Большая Медведица». Чем могу помочь?';
+
 export const config = {
   port: process.env.PORT || 3010,
   publicBaseUrl: resolveConfig('PUBLIC_BASE_URL', [], process.env.PUBLIC_BASE_URL || 'http://localhost:3010'),
@@ -86,6 +89,8 @@ export const config = {
 
   // Характер агента (тон/личность). Редактируется из Console. Предохранители — отдельно и всегда.
   aiPersona: resolveConfig('AI_PERSONA', [], DEFAULT_AI_PERSONA),
+  // Приветствие (первое сообщение гостю). Редактируется из Console.
+  aiGreeting: resolveConfig('AI_GREETING', [], DEFAULT_AI_GREETING),
 
   openRouter: {
     enabled: resolveConfig('OPENROUTER_ENABLED') === 'true',
@@ -183,6 +188,7 @@ function refreshConfig() {
   
   config.aiProvider = resolveConfig('AI_PROVIDER', [], 'mock');
   config.aiPersona = resolveConfig('AI_PERSONA', [], DEFAULT_AI_PERSONA);
+  config.aiGreeting = resolveConfig('AI_GREETING', [], DEFAULT_AI_GREETING);
 
   config.openRouter.enabled = resolveConfig('OPENROUTER_ENABLED') === 'true';
   config.openRouter.apiKey = resolveConfig('OPENROUTER_API_KEY');

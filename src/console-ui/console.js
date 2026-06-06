@@ -167,28 +167,37 @@ async function loadSettings() {
   updateProviderStatuses();
   updateIntegrationStatuses();
 
-  // Agent persona (character)
+  // Agent persona (character) + greeting
+  applyPersonaFields();
+}
+
+function applyPersonaFields() {
   const personaEl = document.getElementById('cfg-ai-persona');
   if (personaEl && typeof settings.AI_PERSONA === 'string') personaEl.value = settings.AI_PERSONA;
+  const greetEl = document.getElementById('cfg-ai-greeting');
+  if (greetEl && typeof settings.AI_GREETING === 'string') greetEl.value = settings.AI_GREETING;
 }
 
 async function saveAgentPersona() {
-  const el = document.getElementById('cfg-ai-persona');
-  if (!el) return;
-  const value = el.value.trim();
-  await apiFetch('/settings', { method: 'POST', body: JSON.stringify({ AI_PERSONA: value }) });
+  const personaEl = document.getElementById('cfg-ai-persona');
+  const greetEl = document.getElementById('cfg-ai-greeting');
+  if (!personaEl && !greetEl) return;
+  const update = {
+    AI_PERSONA: personaEl ? personaEl.value.trim() : '',
+    AI_GREETING: greetEl ? greetEl.value.trim() : ''
+  };
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify(update) });
   settings = await apiFetch('/settings');
-  if (typeof settings.AI_PERSONA === 'string') el.value = settings.AI_PERSONA;
-  setKbMessage('persona-save-result', value ? 'Характер сохранён' : 'Сброшено к стандартному', true);
+  applyPersonaFields();
+  setKbMessage('persona-save-result', 'Сохранено', true);
 }
 window.saveAgentPersona = saveAgentPersona;
 
 async function resetAgentPersona() {
-  // Пустое значение -> backend удаляет ключ -> возвращается стандартный характер
-  await apiFetch('/settings', { method: 'POST', body: JSON.stringify({ AI_PERSONA: '' }) });
+  // Пустые значения -> backend удаляет ключи -> возвращаются стандартные
+  await apiFetch('/settings', { method: 'POST', body: JSON.stringify({ AI_PERSONA: '', AI_GREETING: '' }) });
   settings = await apiFetch('/settings');
-  const el = document.getElementById('cfg-ai-persona');
-  if (el && typeof settings.AI_PERSONA === 'string') el.value = settings.AI_PERSONA;
+  applyPersonaFields();
   setKbMessage('persona-save-result', 'Сброшено к стандартному', true);
 }
 window.resetAgentPersona = resetAgentPersona;

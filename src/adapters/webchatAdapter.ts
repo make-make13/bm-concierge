@@ -57,6 +57,11 @@ export class WebchatAdapter extends BaseAdapter {
         }
       });
 
+      // --- GET /api/chat/web/config --- публичная конфигурация виджета (приветствие) ---
+      app.get('/api/chat/web/config', (_req: any, res: any) => {
+        res.json({ greeting: config.aiGreeting });
+      });
+
       // Пример простого REST API для вебчата
       app.post('/api/chat/web', async (req: any, res: any) => {
         try {

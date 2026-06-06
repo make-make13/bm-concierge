@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>БМ Консьерж</title>
-  <link rel="stylesheet" href="/console/console.css?v=17">
+  <link rel="stylesheet" href="/console/console.css?v=18">
 </head>
 <body>
   
@@ -220,13 +220,16 @@
           <div class="persona-head">
             <div>
               <div class="provider-kicker">Характер агента</div>
-              <div class="persona-title">Как ассистент общается с гостями (тон, личность)</div>
+              <div class="persona-title">Приветствие и стиль общения с гостями</div>
             </div>
             <button class="btn btn-secondary btn-sm" onclick="resetAgentPersona()">Сбросить к стандартному</button>
           </div>
+          <label class="form-label">Приветствие (первое сообщение: Telegram /start и веб-виджет)</label>
+          <textarea class="form-input persona-greeting" id="cfg-ai-greeting" maxlength="500" placeholder="Например: Здравствуйте! Я — онлайн-консьерж бутик-отеля. Чем могу помочь?"></textarea>
+          <label class="form-label" style="margin-top:14px;">Характер (тон, личность)</label>
           <textarea class="form-input persona-textarea" id="cfg-ai-persona" maxlength="2000" placeholder="Например: Ты — приветливый онлайн-консьерж бутик-отеля. Отвечай тепло, кратко и по-человечески..."></textarea>
           <div class="persona-foot">
-            <button class="btn" onclick="saveAgentPersona()">Сохранить характер</button>
+            <button class="btn" onclick="saveAgentPersona()">Сохранить</button>
             <span id="persona-save-result" class="form-desc"></span>
           </div>
           <div class="form-desc persona-note">🔒 Правила-предохранители (отвечать только по базе знаний, не подтверждать брони, не называть цены, не использовать WhatsApp, не публиковать контакты администратора) применяются автоматически и здесь не редактируются.</div>
@@ -817,6 +820,6 @@
     </div>
   </div>
 
-  <script src="/console/console.js?v=17"></script>
+  <script src="/console/console.js?v=18"></script>
 </body>
 </html>

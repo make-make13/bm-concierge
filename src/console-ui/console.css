@@ -1932,6 +1932,12 @@ select.form-input {
   line-height: 1.5;
 }
 
+.persona-greeting {
+  min-height: 58px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
 .persona-foot {
   display: flex;
   align-items: center;

@@ -35,7 +35,7 @@ export class TelegramAdapter extends BaseAdapter {
 
       this.bot.start(async (ctx) => {
         try {
-          await ctx.reply('Здравствуйте! Я — онлайн-консьерж бутик-отеля «Большая Медведица». Чем могу помочь?');
+          await ctx.reply(config.aiGreeting);
         } catch (e) {
           console.error('[TelegramAdapter] Error sending /start reply:', e);
         }
