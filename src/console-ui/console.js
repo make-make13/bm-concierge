@@ -614,13 +614,31 @@ function openProviderConfig(provider) {
         <label class="form-label">Выбрать из популярных</label>
         <select class="form-input" id="cfg-or-model-presets" onchange="if(this.value){document.getElementById('cfg-or-model').value=this.value;} this.selectedIndex=0;">
           <option value="">— выберите модель —</option>
-          <option value="deepseek/deepseek-chat">DeepSeek Chat (deepseek/deepseek-chat)</option>
-          <option value="deepseek/deepseek-r1">DeepSeek R1 (deepseek/deepseek-r1)</option>
-          <option value="google/gemini-2.5-pro">Gemini 2.5 Pro (google/gemini-2.5-pro)</option>
-          <option value="google/gemini-2.5-flash">Gemini 2.5 Flash (google/gemini-2.5-flash)</option>
-          <option value="openai/gpt-chat-latest">OpenAI GPT Chat Latest (openai/gpt-chat-latest)</option>
-          <option value="anthropic/claude-sonnet-4">Claude Sonnet (anthropic/claude-sonnet-4)</option>
-          <option value="openrouter/auto">OpenRouter Auto (openrouter/auto)</option>
+          <optgroup label="DeepSeek">
+            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+            <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+          </optgroup>
+          <optgroup label="OpenAI">
+            <option value="openai/gpt-4o">GPT-4o</option>
+            <option value="openai/gpt-4o-mini">GPT-4o mini</option>
+            <option value="openai/gpt-4.1">GPT-4.1</option>
+            <option value="openai/gpt-5.1">GPT-5.1</option>
+            <option value="openai/o4-mini">o4-mini (reasoning)</option>
+            <option value="openai/gpt-oss-120b">GPT-OSS 120B</option>
+          </optgroup>
+          <optgroup label="Anthropic">
+            <option value="anthropic/claude-sonnet-4.5">Claude Sonnet 4.5</option>
+            <option value="anthropic/claude-opus-4.8">Claude Opus 4.8</option>
+            <option value="anthropic/claude-haiku-4.5">Claude Haiku 4.5</option>
+            <option value="anthropic/claude-3.5-haiku">Claude 3.5 Haiku</option>
+          </optgroup>
+          <optgroup label="Google">
+            <option value="google/gemini-2.5-pro">Gemini 2.5 Pro</option>
+            <option value="google/gemini-2.5-flash">Gemini 2.5 Flash</option>
+          </optgroup>
+          <optgroup label="Авто">
+            <option value="openrouter/auto">OpenRouter Auto</option>
+          </optgroup>
         </select>
       </div>
       <div class="form-group">
