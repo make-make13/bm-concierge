@@ -36,15 +36,16 @@ export class VkAdapter extends BaseAdapter {
       try {
         const body = req.body;
 
-        // Проверка секрета (если настроен)
+        // Подтверждение сервера VK. ВАЖНО: VK НЕ присылает поле secret в confirmation-запросе,
+        // поэтому проверку секрета делаем ПОСЛЕ — иначе подтверждение упирается в 403.
+        if (body.type === 'confirmation') {
+          return res.send(confirmationToken);
+        }
+
+        // Проверка секрета (если настроен) — для реальных событий
         if (secretKey && body.secret !== secretKey) {
           console.warn('[VkAdapter] Invalid secret key in request');
           return res.status(403).send('forbidden');
-        }
-
-        // Подтверждение сервера VK
-        if (body.type === 'confirmation') {
-          return res.send(confirmationToken);
         }
 
         // VK ждёт немедленный ответ 'ok'
