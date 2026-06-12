@@ -60,6 +60,17 @@ function resolveConfig(envKey: string, fallbackEnvs: string[] = [], defaultValue
   return defaultValue;
 }
 
+function asBoolean(value: any): boolean {
+  if (value === true) return true;
+  if (value === false) return false;
+  if (typeof value === 'string') return value.trim().toLowerCase() === 'true';
+  return false;
+}
+
+function isSecretSettingKey(key: string): boolean {
+  return /(TOKEN|KEY|PASSWORD|SECRET|API_KEY|SERVICE_ROLE)/i.test(key);
+}
+
 // Характер/персона агента по умолчанию (редактируется из Console через ключ AI_PERSONA).
 // Только тон и личность — правила-предохранители живут в conciergeEngine и применяются всегда.
 export const DEFAULT_AI_PERSONA = `Ты — онлайн-консьерж бутик-отеля «Большая Медведица» в Териберке.
@@ -93,24 +104,24 @@ export const config = {
   aiGreeting: resolveConfig('AI_GREETING', [], DEFAULT_AI_GREETING),
 
   openRouter: {
-    enabled: resolveConfig('OPENROUTER_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('OPENROUTER_ENABLED')),
     apiKey: resolveConfig('OPENROUTER_API_KEY'),
     baseUrl: resolveConfig('OPENROUTER_BASE_URL', [], 'https://openrouter.ai/api/v1'),
     model: resolveConfig('OPENROUTER_MODEL', ['OPENROUTER_CHAT_MODEL'], 'deepseek/deepseek-chat'),
   },
   
   deepSeek: {
-    enabled: resolveConfig('DEEPSEEK_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('DEEPSEEK_ENABLED')),
     apiKey: resolveConfig('DEEPSEEK_API_KEY'),
     baseUrl: resolveConfig('DEEPSEEK_BASE_URL', [], 'https://api.deepseek.com'),
     model: resolveConfig('DEEPSEEK_MODEL', [], 'deepseek-chat'),
   },
 
   smtp: {
-    enabled: resolveConfig('SMTP_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('SMTP_ENABLED')),
     host: resolveConfig('SMTP_HOST'),
     port: parseInt(resolveConfig('SMTP_PORT', [], '465')),
-    secure: resolveConfig('SMTP_SECURE', [], 'true') === 'true',
+    secure: asBoolean(resolveConfig('SMTP_SECURE', [], 'true')),
     user: resolveConfig('SMTP_USER'),
     password: resolveConfig('SMTP_PASSWORD'),
     fromName: resolveConfig('SMTP_FROM_NAME', [], 'БМ Консьерж'),
@@ -119,7 +130,7 @@ export const config = {
   },
   
   telegram: {
-    enabled: resolveConfig('TELEGRAM_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('TELEGRAM_ENABLED')),
     botToken: resolveConfig('TELEGRAM_BOT_TOKEN'),
     botUrl: resolveConfig('TELEGRAM_BOT_URL'),
     adminId: resolveConfig('TELEGRAM_ADMIN_ID'),
@@ -130,14 +141,14 @@ export const config = {
   },
   
   vk: {
-    enabled: resolveConfig('VK_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('VK_ENABLED')),
     groupToken: resolveConfig('VK_GROUP_TOKEN', ['VK_GROUP_ACCESS_TOKEN']),
     confirmationToken: resolveConfig('VK_CONFIRMATION_TOKEN', ['VK_CONFIRMATION_CODE']),
     secretKey: resolveConfig('VK_SECRET_KEY', ['VK_SECRET_TOKEN']),
   },
   
   webchat: {
-    enabled: resolveConfig('WEBCHAT_ENABLED') === 'true',
+    enabled: asBoolean(resolveConfig('WEBCHAT_ENABLED')),
     allowedOrigins: resolveConfig('WEBCHAT_ALLOWED_ORIGINS', [], 'https://ai.4-am.ru,http://localhost:3010'),
     publicPath: resolveConfig('WEBCHAT_PUBLIC_PATH', [], '/widget.js')
   },
@@ -168,7 +179,10 @@ export function saveSettings(newSettings: any) {
   }
   
   for (const [key, val] of Object.entries(newSettings)) {
-    if (val === '' || val === null) {
+    if (val === '') {
+      if (isSecretSettingKey(key)) continue;
+      delete runtimeOverride[key];
+    } else if (val === null) {
       delete runtimeOverride[key];
     } else if (isValidValue(val)) {
       runtimeOverride[key] = val;
@@ -190,39 +204,41 @@ function refreshConfig() {
   config.aiPersona = resolveConfig('AI_PERSONA', [], DEFAULT_AI_PERSONA);
   config.aiGreeting = resolveConfig('AI_GREETING', [], DEFAULT_AI_GREETING);
 
-  config.openRouter.enabled = resolveConfig('OPENROUTER_ENABLED') === 'true';
+  config.openRouter.enabled = asBoolean(resolveConfig('OPENROUTER_ENABLED'));
   config.openRouter.apiKey = resolveConfig('OPENROUTER_API_KEY');
   config.openRouter.baseUrl = resolveConfig('OPENROUTER_BASE_URL', [], 'https://openrouter.ai/api/v1');
   config.openRouter.model = resolveConfig('OPENROUTER_MODEL', ['OPENROUTER_CHAT_MODEL'], 'deepseek/deepseek-chat');
 
-  config.deepSeek.enabled = resolveConfig('DEEPSEEK_ENABLED') === 'true';
+  config.deepSeek.enabled = asBoolean(resolveConfig('DEEPSEEK_ENABLED'));
   config.deepSeek.apiKey = resolveConfig('DEEPSEEK_API_KEY');
   config.deepSeek.baseUrl = resolveConfig('DEEPSEEK_BASE_URL', [], 'https://api.deepseek.com');
   config.deepSeek.model = resolveConfig('DEEPSEEK_MODEL', [], 'deepseek-chat');
 
-  config.smtp.enabled = resolveConfig('SMTP_ENABLED') === 'true';
+  config.smtp.enabled = asBoolean(resolveConfig('SMTP_ENABLED'));
   config.smtp.host = resolveConfig('SMTP_HOST');
   config.smtp.port = parseInt(resolveConfig('SMTP_PORT', [], '465'));
-  config.smtp.secure = resolveConfig('SMTP_SECURE', [], 'true') === 'true';
+  config.smtp.secure = asBoolean(resolveConfig('SMTP_SECURE', [], 'true'));
   config.smtp.user = resolveConfig('SMTP_USER');
   config.smtp.password = resolveConfig('SMTP_PASSWORD');
   config.smtp.fromName = resolveConfig('SMTP_FROM_NAME', [], 'БМ Консьерж');
   config.smtp.fromEmail = resolveConfig('SMTP_FROM_EMAIL');
   config.smtp.adminEmail = resolveConfig('ADMIN_NOTIFICATION_EMAIL');
 
-  config.telegram.enabled = resolveConfig('TELEGRAM_ENABLED') === 'true';
+  config.telegram.enabled = asBoolean(resolveConfig('TELEGRAM_ENABLED'));
   config.telegram.botToken = resolveConfig('TELEGRAM_BOT_TOKEN');
+  config.telegram.botUrl = resolveConfig('TELEGRAM_BOT_URL');
   config.telegram.adminId = resolveConfig('TELEGRAM_ADMIN_ID');
   config.telegram.adminIds = resolveConfig('TELEGRAM_ADMIN_IDS', ['TELEGRAM_ADMIN_ID']);
   config.telegram.mode = resolveConfig('TELEGRAM_MODE', [], 'polling');
   config.telegram.webhookUrl = resolveConfig('TELEGRAM_WEBHOOK_URL');
+  config.telegram.webhookSecret = resolveConfig('TELEGRAM_WEBHOOK_SECRET');
 
-  config.vk.enabled = resolveConfig('VK_ENABLED') === 'true';
+  config.vk.enabled = asBoolean(resolveConfig('VK_ENABLED'));
   config.vk.groupToken = resolveConfig('VK_GROUP_TOKEN', ['VK_GROUP_ACCESS_TOKEN']);
   config.vk.confirmationToken = resolveConfig('VK_CONFIRMATION_TOKEN', ['VK_CONFIRMATION_CODE']);
   config.vk.secretKey = resolveConfig('VK_SECRET_KEY', ['VK_SECRET_TOKEN']);
 
-  config.webchat.enabled = resolveConfig('WEBCHAT_ENABLED') === 'true';
+  config.webchat.enabled = asBoolean(resolveConfig('WEBCHAT_ENABLED'));
   config.webchat.allowedOrigins = resolveConfig('WEBCHAT_ALLOWED_ORIGINS', [], 'https://ai.4-am.ru,http://localhost:3010');
 
   config.hotelProfile.hotelName = resolveConfig('hotelName');

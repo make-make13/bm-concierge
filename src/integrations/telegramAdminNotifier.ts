@@ -9,10 +9,75 @@ function parseAdminIds(value: string): string[] {
 }
 
 function escapeHtml(value: string) {
-  return value
+  return String(value || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
+}
+
+function formatChannel(channel: string) {
+  const labels: Record<string, string> = {
+    telegram: 'Telegram',
+    webchat: 'Сайт',
+    vk: 'VK',
+    console: 'Console',
+    test: 'Тест',
+  };
+  return labels[channel] || channel;
+}
+
+function formatEscalationReason(reason: string) {
+  const labels: Record<string, string> = {
+    guest_requested: 'гость просит администратора',
+    discount: 'скидка или индивидуальные условия',
+    complaint: 'жалоба или конфликт',
+    admin_decision: 'вопрос требует решения администратора',
+    low_confidence: 'низкая уверенность ИИ',
+    no_kb: 'нет точной информации в базе знаний',
+  };
+  return labels[reason] || reason;
+}
+
+export function shouldNotifyEscalation(conversation: any): boolean {
+  if (!conversation) return true;
+  return !(conversation.needs_attention === 1 || conversation.needs_attention === true);
+}
+
+export function formatTelegramSendError(chatId: string, status: number, description?: string) {
+  const base = `${chatId}: HTTP ${status}${description ? ` - ${description}` : ''}`;
+  const normalized = String(description || '').toLowerCase();
+  if (status === 403 || (status === 400 && normalized.includes('chat not found'))) {
+    return `${base}. Администратор должен открыть нового бота и нажать /start; если ошибка останется, проверьте Telegram ID.`;
+  }
+  return base;
+}
+
+export function formatEscalationNotification(data: {
+  conversationId: string;
+  channel: string;
+  guestName: string;
+  guestContact: string;
+  message: string;
+  reason: string;
+  consoleUrl?: string;
+}) {
+  const consoleUrl = data.consoleUrl || `${config.publicBaseUrl}/console`;
+  return [
+    '<b>Нужен администратор</b>',
+    '',
+    `Гость: <b>${escapeHtml(data.guestName || 'Гость')}</b>`,
+    `Канал: ${escapeHtml(formatChannel(data.channel))}`,
+    `Причина: ${escapeHtml(formatEscalationReason(data.reason))}`,
+    `Контакт: ${escapeHtml(data.guestContact || '-')}`,
+    '',
+    '<b>Последнее сообщение:</b>',
+    escapeHtml(data.message),
+    '',
+    '<b>Открыть Console:</b>',
+    consoleUrl,
+    '',
+    `<code>${escapeHtml(data.conversationId)}</code>`,
+  ].join('\n');
 }
 
 class TelegramAdminNotifier {
@@ -49,7 +114,8 @@ class TelegramAdminNotifier {
 
         if (!response.ok) {
           failed++;
-          errors.push(`${chatId}: HTTP ${response.status}`);
+          const body: any = await response.json().catch(() => ({}));
+          errors.push(formatTelegramSendError(chatId, response.status, body.description));
           continue;
         }
         sent++;
@@ -107,21 +173,7 @@ class TelegramAdminNotifier {
     message: string;
     reason: string;
   }) {
-    const text = [
-      '<b>Нужен администратор</b>',
-      '',
-      `Диалог: ${escapeHtml(data.conversationId)}`,
-      `Канал: ${escapeHtml(data.channel)}`,
-      `Гость: ${escapeHtml(data.guestName)}`,
-      `Контакт: ${escapeHtml(data.guestContact || '-')}`,
-      `Причина: ${escapeHtml(data.reason)}`,
-      '',
-      '<b>Последнее сообщение:</b>',
-      escapeHtml(data.message),
-      '',
-      `${config.publicBaseUrl}/console`
-    ].join('\n');
-
+    const text = formatEscalationNotification(data);
     const result = await this.send(text);
     dbStore.logEvent(
       result.sent > 0 ? 'TELEGRAM_ADMIN_SENT' : 'TELEGRAM_ADMIN_FAILED',

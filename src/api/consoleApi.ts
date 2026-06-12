@@ -9,6 +9,7 @@ import { supabaseWriter } from '../integrations/supabaseLeads';
 import { AIProviderFactory } from '../ai/aiProviderFactory';
 import { smtpService } from '../integrations/smtpService';
 import { telegramAdminNotifier } from '../integrations/telegramAdminNotifier';
+import { adapterManager } from '../adapters/adapterManager';
 
 export const consoleRouter = Router();
 
@@ -262,7 +263,7 @@ consoleRouter.get('/settings', (req: Request, res: Response) => {
   res.json(maskedSettings);
 });
 
-consoleRouter.post('/settings', (req: Request, res: Response) => {
+consoleRouter.post('/settings', async (req: Request, res: Response) => {
   const newSettings = req.body;
   saveSettings(newSettings);
 
@@ -272,6 +273,15 @@ consoleRouter.post('/settings', (req: Request, res: Response) => {
   }
   if (['SMTP_ENABLED', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_SECURE', 'SMTP_USER', 'SMTP_PASSWORD', 'SMTP_FROM_NAME', 'SMTP_FROM_EMAIL', 'ADMIN_NOTIFICATION_EMAIL'].some(key => changedKeys.has(key))) {
     smtpService.reinitialize();
+  }
+  if (['TELEGRAM_ENABLED', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_MODE', 'TELEGRAM_WEBHOOK_URL'].some(key => changedKeys.has(key))) {
+    try {
+      const telegram = adapterManager.getTelegramAdapter();
+      await telegram.stop();
+      await telegram.start();
+    } catch (err: any) {
+      console.error('[Console] Failed to restart Telegram adapter:', err);
+    }
   }
   
   res.json({ success: true });

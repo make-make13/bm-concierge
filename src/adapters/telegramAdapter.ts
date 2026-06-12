@@ -2,6 +2,7 @@ import { Telegraf } from 'telegraf';
 import { BaseAdapter } from './baseAdapter';
 import { config } from '../config';
 import { conversationService } from '../core/conversationService';
+import { formatTelegramReply } from './telegramFormatter';
 
 export class TelegramAdapter extends BaseAdapter {
   private bot: Telegraf | null = null;
@@ -12,6 +13,8 @@ export class TelegramAdapter extends BaseAdapter {
   }
 
   public async start(): Promise<void> {
+    this.enabled = config.telegram.enabled;
+
     if (!this.isEnabled()) {
       console.log('[TelegramAdapter] disabled by config');
       this.status = 'not_configured';
@@ -35,7 +38,7 @@ export class TelegramAdapter extends BaseAdapter {
 
       this.bot.start(async (ctx) => {
         try {
-          await ctx.reply(config.aiGreeting);
+          await this.replyWithTelegramFormatting(ctx, config.aiGreeting);
         } catch (e) {
           console.error('[TelegramAdapter] Error sending /start reply:', e);
         }
@@ -67,7 +70,7 @@ export class TelegramAdapter extends BaseAdapter {
           }
 
           // Отправляем ответ пользователю
-          await ctx.reply(result.reply);
+          await this.replyWithTelegramFormatting(ctx, result.reply);
 
         } catch (error) {
           console.error('[TelegramAdapter] Error processing message:', error);
@@ -109,12 +112,27 @@ export class TelegramAdapter extends BaseAdapter {
     }
   }
 
+  private async replyWithTelegramFormatting(ctx: any, text: string): Promise<void> {
+    const formatted = formatTelegramReply(text);
+    try {
+      await ctx.reply(formatted.text, formatted.extra as any);
+    } catch (error) {
+      if (!formatted.extra) throw error;
+      await ctx.reply(text);
+    }
+  }
+
   public stop(): void {
     if (this.bot) {
       console.log('[TelegramAdapter] Stopping...');
-      this.bot.stop('SIGINT');
-      this.status = 'not_configured';
+      try {
+        this.bot.stop('SIGINT');
+      } catch (error: any) {
+        console.log(`[TelegramAdapter] stop skipped: ${error.message}`);
+      }
+      this.bot = null;
     }
+    this.status = 'not_configured';
   }
 
   /**
@@ -128,6 +146,12 @@ export class TelegramAdapter extends BaseAdapter {
     if (!text || !text.trim()) {
       throw new Error('Cannot send empty Telegram message');
     }
-    await this.bot.telegram.sendMessage(chatId, text);
+    const formatted = formatTelegramReply(text);
+    try {
+      await this.bot.telegram.sendMessage(chatId, formatted.text, formatted.extra as any);
+    } catch (error) {
+      if (!formatted.extra) throw error;
+      await this.bot.telegram.sendMessage(chatId, text);
+    }
   }
 }

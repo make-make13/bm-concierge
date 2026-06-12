@@ -4,7 +4,7 @@ import { conciergeEngine } from './conciergeEngine';
 import { LeadExtractor } from './leadExtractor';
 import { supabaseWriter } from '../integrations/supabaseLeads';
 import { smtpService } from '../integrations/smtpService';
-import { telegramAdminNotifier } from '../integrations/telegramAdminNotifier';
+import { shouldNotifyEscalation, telegramAdminNotifier } from '../integrations/telegramAdminNotifier';
 import { config } from '../config';
 
 export type IncomingChannelMessage = {
@@ -101,9 +101,9 @@ export class ConversationService {
         const isManualNow = fresh ? (fresh.manual_mode === 1 || fresh.manual_mode === true) : false;
         // Не трогаем диалоги, которые уже ведёт оператор или закрытые (анти-гонка).
         if (!isManualNow && freshStatus !== 'operator' && freshStatus !== 'closed') {
-          const already = fresh && fresh.needs_attention === 1 && fresh.escalation_reason === escalation.reason;
+          const shouldNotify = shouldNotifyEscalation(fresh);
           dbStore.setConversationNeedsAttention(externalConversationId, escalation.reason);
-          if (!already) {
+          if (shouldNotify) {
             dbStore.logEvent(
               'CONVERSATION_ESCALATED',
               `Диалог ${externalConversationId} требует администратора: ${escalation.reason}`,

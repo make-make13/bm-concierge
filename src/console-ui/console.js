@@ -472,7 +472,7 @@ function openIntegrationConfig(type) {
         <label class="form-label">Webhook URL (только для webhook-режима)</label>
         <input type="text" class="form-input" id="cfg-tg-webhook" value="${settings.TELEGRAM_WEBHOOK_URL || ''}" placeholder="https://ai.4-am.ru/webhooks/telegram">
       </div>
-      <div class="form-desc" style="margin-top:8px;">После изменения токена потребуется перезапуск сервера.</div>
+      <div class="form-desc" style="margin-top:8px;">После сохранения Telegram перезапускается автоматически. Пустой Bot Token не меняет сохранённый токен.</div>
     `;
   } else if (type === 'vk') {
     title.textContent = 'Настройка ВКонтакте';
